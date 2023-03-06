@@ -17,6 +17,7 @@ public:
 	AssimpRes(const AssimpRes& copyFrom) = delete; // represents memory resource, cannot copy
 	~AssimpRes();
 
+	bool                              IsAvaliable() const;
 	void                              SetSpaceConventions(const Mat4x4& mat);
 	std::vector<SkeletalMesh*>        LoadMesh() const;
 	std::vector<Animation*>           LoadAnimation(const Skeleton& skeleton) const;

@@ -17,6 +17,7 @@ public:
     const std::string&    GetImageFilePath() const                                            { return m_imageFilePath; }
     const IntVec2&        GetDimensions() const 										      { return m_dimensions; }
     const void*           GetRawData() const 				                                  { return m_rgbaTexels.data(); }
+    size_t                GetRawDataSize() const 				                              { return m_rgbaTexels.size() * sizeof(Rgba8); }
 
     const Rgba8&          GetTexelColor(const IntVec2& texelCoords) const 				      { return m_rgbaTexels[texelCoords.x + texelCoords.y * m_dimensions.x]; }
     void			      SetTexelColor(const IntVec2& texelCoords, const Rgba8& newColor)    { m_rgbaTexels[texelCoords.x + texelCoords.y * m_dimensions.x] = newColor; }

@@ -38,6 +38,10 @@ const extern unsigned char KEYCODE_8;
 const extern unsigned char KEYCODE_9;
 const extern unsigned char KEYCODE_0;
 
+const extern unsigned char KEYCODE_TAB;
+const extern unsigned char KEYCODE_COMMA;
+const extern unsigned char KEYCODE_PERIOD;
+
 const extern unsigned char KEYCODE_SPACE;
 const extern unsigned char KEYCODE_ENTER;
 const extern unsigned char KEYCODE_ESC;

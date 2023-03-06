@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Vec2.hpp"
-#include "Vec3.hpp"
+#include "Engine/Math/Vec2.hpp"
+#include "Engine/Math/Vec3.hpp"
+#include "Engine/Math/RaycastResult.hpp"
 
 struct IntVec2;
 struct Vec4;
@@ -11,44 +12,6 @@ struct OBB2;
 struct LineSegment2;
 struct Capsule2;
 struct EulerAngles;
-
-struct RaycastResult2D
-{
-public:
-    explicit    RaycastResult2D()                                                                     : m_didImpact(false) {};
-    explicit    RaycastResult2D(float impactDist, const Vec2& impactPos, const Vec2& impactNormal)    : m_didImpact(true), m_impactDist(impactDist), m_impactPos(impactPos), m_impactNormal(impactNormal) {};
-
-public:                                                                                               
-    bool        DidImpact() const                                                                     { return m_didImpact; }
-    float       GetImpactDistance() const                                                             { return m_impactDist; }
-    const Vec2& GetImpactPosition() const                                                             { return m_impactPos; }
-    const Vec2& GetImpactNormal() const                                                               { return m_impactNormal; }
-
-private:
-    bool    m_didImpact = false;
-    float   m_impactDist = 0.0f;
-    Vec2    m_impactPos;
-    Vec2    m_impactNormal;
-};
-
-struct RaycastResult3D
-{
-public:
-	explicit    RaycastResult3D() : m_didImpact(false) {};
-	explicit    RaycastResult3D(float impactDist, const Vec3& impactPos, const Vec3& impactNormal) : m_didImpact(true), m_impactDist(impactDist), m_impactPos(impactPos), m_impactNormal(impactNormal) {};
-
-public:
-	bool        DidImpact() const { return m_didImpact; }
-	float       GetImpactDistance() const { return m_impactDist; }
-	const Vec3& GetImpactPosition() const { return m_impactPos; }
-	const Vec3& GetImpactNormal() const { return m_impactNormal; }
-
-private:
-	bool    m_didImpact = false;
-	float   m_impactDist = 0.0f;
-	Vec3    m_impactPos;
-	Vec3    m_impactNormal;
-};
 
 constexpr float  PI = 3.14159265358979323846f;
 
@@ -174,6 +137,7 @@ RaycastResult2D RaycastVsDisc2D(const Vec2& startPos, const Vec2& fwdNormal, flo
 RaycastResult2D RaycastVsAABB2D(const Vec2& startPos, const Vec2& fwdNormal, float maxDist, const AABB2& box);
 RaycastResult2D RaycastVsOBB2D(const Vec2& startPos, const Vec2& fwdNormal, float maxDist, const OBB2& box);
 RaycastResult2D RaycastVsLineSegment2D(const Vec2& startPos, const Vec2& fwdNormal, float maxDist, const Vec2& lineStart, const Vec2& lineEnd);
+RaycastResult2D RaycastVsPlane2D(const Vec2& startPos, const Vec2& fwdNormal, float maxDist, const Vec2& planeDir, float planeDist);
 
 RaycastResult3D RaycastVsSphere(const Vec3& startPos, const Vec3& fwdNormal, float maxDist, const Vec3& sphereCenter, float sphereRadius);
 RaycastResult3D RaycastVsAABB3D(const Vec3& startPos, const Vec3& fwdNormal, float maxDist, const AABB3& box);

@@ -27,6 +27,7 @@ class  IndexBuffer;
 class  ConstantBuffer;
 class  Image;
 class  Renderer;
+struct TextureCreateInfo;
 
 struct ID3D11Device;
 struct ID3D11DeviceContext;
@@ -63,6 +64,13 @@ constexpr int CUSTOM_CONSTANT_BUFFER_SLOT_SIZE = 4;
 typedef std::vector<Vertex_PCU> VertexList;
 typedef std::vector<ConstantBuffer*> CBOList;
 
+struct ScreenTarget
+{
+    Window*         window = nullptr;
+    IDXGISwapChain* swapChain = nullptr;
+    Texture*        screenBuffer = nullptr;
+};
+
 class Renderer
 {
 public:
@@ -81,12 +89,13 @@ public:
     void               ClearScreen(const Rgba8& color);
     void               ClearScreen(const Rgba8& color, Texture* renderTarget);
     void               ClearDepth(float value = 1.0f);
+    void               ClearStencil(unsigned char value = 0xff);
     ModelConstants&    GetModelConstants();
     LightConstants&    GetLightConstants();
     void               UpdateLights();
     void               SetTintColor(const Rgba8& color);
     void               SetModelMatrix(const Mat4x4& modelMatrix);
-    void               BeginCamera(const Camera& camera);
+    void               BeginCamera(const Camera& camera, const Window* window = nullptr);
     void               EndCamera(const Camera& camera);
     void               DrawVertexArray(VertexList vertices);
     void               DrawVertexArray(int numVertex, const Vertex_PCU* vertexArray);
@@ -99,6 +108,9 @@ public:
 	void               DrawIndexedInstancedVertexBuffer(IndexBuffer* ibo, VertexBuffer** vbo, int indexCount, int instanceCount, int indexOffset = 0, int vertexOffset = 0, int instanceOffset = 0);
 	void               DrawIndexedInstancedVertexBuffer(int slots, IndexBuffer* ibo, VertexBuffer** vbo, int indexCount, int instanceCount, int indexOffset = 0, int vertexOffset = 0, int instanceOffset = 0);
 
+    void               DrawPostprocessRect(const Window* window = nullptr);
+    void               DrawNDCFullscreenRect();
+
     // render states
 	void               SetCullMode(CullMode cullMode);
 	void               SetFillMode(FillMode fillMode);
@@ -109,11 +121,16 @@ public:
 	void               SetDepthStencilState(DepthTest depthTest, bool writeDepth);
 	void               SetBlendMode(BlendMode blendMode);
 	void               SetSamplerMode(SamplerMode samplerMode);
+    DepthStencilState& GetDepthStencilState();
     void               InitializeCustomConstantBuffer(int slot, size_t size);
     void               SetCustomConstantBuffer(int slot, const void* data);
+
+    // render targets
+    int                AddScreen(Window* window);
+    void               RemoveScreen(Window* window);
                        
 	// Textures        
-    Texture*           GetScreenTexture();
+    Texture*           GetScreenTexture(const Window* window = nullptr) const;
 	void               SetDepthTarget(Texture* texture);
 	void               SetRenderTargets(int size, Texture* const* textures);
     Texture*           CreateTexture(IntVec2 dimensions, bool isR32 = false, bool isDepth = false, bool isTarget = false);
@@ -165,6 +182,7 @@ protected:
 	void               SetLightState();
     Texture*           CreateTextureFromFile(const char* imageFilePath);
     Texture*           CreateTextureFromImage(const Image& image);
+    Texture*           CreateTexture(const TextureCreateInfo& info);
     Texture*           GetTextureForFileName(const char* imageFilePath);
     BitmapFont*        CreateBitmapFontFromFile(const char* fontFilePathNameWithNoExtension);
     BitmapFont*        GetBitmapFontForFileName(const char* fontFilePathNameWithNoExtension);
@@ -175,10 +193,12 @@ protected:
 
     ID3D11Device*               m_device                            = nullptr;
     ID3D11DeviceContext*        m_deviceContext                     = nullptr;
-    IDXGISwapChain*             m_swapChain                         = nullptr; 
-    Texture*                    m_renderTargetScreen                = nullptr;
-    Texture*                    m_depthTargetTexture                = nullptr;
-    ID3D11DepthStencilView*     m_currentDepthTarget                = nullptr;
+
+    ScreenTarget                m_mainScreen                        = {};
+    std::vector<ScreenTarget>   m_screens;
+
+    Texture*                    m_depthBuffer                       = nullptr;
+    ID3D11DepthStencilView*     m_currentDSV                        = nullptr;
 
 #ifdef ENGINE_DEBUG_RENDER
     void*                       m_dxgiDebugModule                   = nullptr;
@@ -200,10 +220,13 @@ protected:
     ConstantBuffer*             m_modelCBO                              = nullptr;
     ConstantBuffer*             m_cameraCBO                             = nullptr;
     ConstantBuffer*             m_lightCBO                              = nullptr;
-    ConstantBuffer*             m_customCBOs[CUSTOM_CONSTANT_BUFFER_SLOT_SIZE];
+    ConstantBuffer*             m_customCBOs[CUSTOM_CONSTANT_BUFFER_SLOT_SIZE] = {};
     VertexBuffer*               m_immediateVBO                          = nullptr;
 
     AABB2                       m_viewport                              = AABB2::ZERO_TO_ONE;
+    int                         m_renderTargetSize                      = 0;
+    ID3D11RenderTargetView*     m_renderTargets[16];
+    CameraConstants             m_cameraConstants;
     LightConstants              m_lightConstants;
     ModelConstants              m_modelConstants;
     RasterizerState             m_rasterizerState;                      
@@ -222,7 +245,7 @@ private:
 private:
     size_t                 m_screenDimensionX       = 0;
     size_t                 m_screenDimensionY       = 0;
-    Rgba8*                 m_screenBuffer           = nullptr;
+    Rgba8*                 screenBuffer           = nullptr;
     float*                 m_depthBuffer            = nullptr;
     CameraConstants        m_cameraConstants;
 

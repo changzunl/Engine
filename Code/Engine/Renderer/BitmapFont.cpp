@@ -7,6 +7,8 @@
 
 #include <vector>
 
+Vec2 BTIMAP_FONT_OVERSIZE = Vec2(1.0f, 1.0f);
+
 BitmapFont::BitmapFont(const char* fontFilePathNameWithNoExtension, Texture& fontTexture)
 	: m_fontFilePathNameWithNoExtension(fontFilePathNameWithNoExtension)
 	, m_fontGlyphsSpriteSheet(fontTexture, IntVec2(16, 16))
@@ -35,6 +37,7 @@ void BitmapFont::AddVertsForText2D(
 		AABB2 aabb = AABB2(0, 0, cellAspect * GetGlyphAspect(ch) * cellHeight, cellHeight);
 		float width = aabb.m_maxs.x;
 		aabb.Translate(textMinsPos);
+		aabb.SetDimensions(aabb.GetDimensions() * BTIMAP_FONT_OVERSIZE);
 		textMinsPos += Vec2(width, 0.0f);
 		AddVertsForAABB2D(verts, aabb, tint, m_fontGlyphsSpriteSheet.GetSpriteUVs(ch));
 	}

@@ -172,6 +172,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -192,6 +193,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -212,6 +214,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -235,6 +238,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <Optimization>Disabled</Optimization>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -255,6 +259,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -275,6 +280,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -295,6 +301,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -318,6 +325,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <Optimization>Disabled</Optimization>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -342,6 +350,7 @@
     <ClCompile Include="Animation\Skeleton.cpp" />
     <ClCompile Include="Audio\AudioSystem.cpp" />
     <ClCompile Include="Audio\AudioSystemConfig.cpp" />
+    <ClCompile Include="Core\BufferCoder.cpp" />
     <ClCompile Include="Core\ByteBuffer.cpp" />
     <ClCompile Include="Core\Clock.cpp" />
     <ClCompile Include="Core\DevConsole.cpp" />
@@ -351,14 +360,17 @@
     <ClCompile Include="Core\FileUtils.cpp" />
     <ClCompile Include="Core\HeatMaps.cpp" />
     <ClCompile Include="Core\Image.cpp" />
+    <ClCompile Include="Core\IOBuffer.cpp" />
     <ClCompile Include="Core\JobSystem.cpp" />
     <ClCompile Include="Core\JobSystemConfig.cpp" />
+    <ClCompile Include="Core\NamedProperties.cpp" />
     <ClCompile Include="Core\NamedStrings.cpp" />
     <ClCompile Include="Core\Rgba8.cpp" />
     <ClCompile Include="Core\RgbaF.cpp" />
     <ClCompile Include="Core\Stopwatch.cpp" />
     <ClCompile Include="Core\StringUtils.cpp" />
     <ClCompile Include="Core\Time.cpp" />
+    <ClCompile Include="Core\UUID.cpp" />
     <ClCompile Include="Core\VertexUtils.cpp" />
     <ClCompile Include="Core\Vertex_PCU.cpp" />
     <ClCompile Include="Core\Vertex_PNCU.cpp" />
@@ -371,6 +383,8 @@
     <ClCompile Include="Math\AABB2.cpp" />
     <ClCompile Include="Math\AABB3.cpp" />
     <ClCompile Include="Math\Capsule2.cpp" />
+    <ClCompile Include="Math\ConvexHull2D.cpp" />
+    <ClCompile Include="Math\ConvexPoly2D.cpp" />
     <ClCompile Include="Math\Curves.cpp" />
     <ClCompile Include="Math\EulerAngles.cpp" />
     <ClCompile Include="Math\FloatRange.cpp" />
@@ -382,12 +396,18 @@
     <ClCompile Include="Math\MathUtils.cpp" />
     <ClCompile Include="Math\Matrix.cpp" />
     <ClCompile Include="Math\OBB2.cpp" />
+    <ClCompile Include="Math\Plane2D.cpp" />
     <ClCompile Include="Math\PolarPosition2D.cpp" />
     <ClCompile Include="Math\RandomNumberGenerator.cpp" />
+    <ClCompile Include="Math\RaycastResult.cpp" />
     <ClCompile Include="Math\Transformation.cpp" />
     <ClCompile Include="Math\Vec2.cpp" />
     <ClCompile Include="Math\Vec3.cpp" />
     <ClCompile Include="Math\Vec4.cpp" />
+    <ClCompile Include="Network\Message.cpp" />
+    <ClCompile Include="Network\NetworkSystem.cpp" />
+    <ClCompile Include="Network\Packet.cpp" />
+    <ClCompile Include="Network\RemoteConsole.cpp" />
     <ClCompile Include="Renderer\BitmapFont.cpp" />
     <ClCompile Include="Renderer\Camera.cpp" />
     <ClCompile Include="Renderer\ConstantBuffer.cpp" />
@@ -403,8 +423,10 @@
     <ClCompile Include="Renderer\SpriteDefinition.cpp" />
     <ClCompile Include="Renderer\SpriteSheet.cpp" />
     <ClCompile Include="Renderer\Texture.cpp" />
+    <ClCompile Include="Renderer\TextureView.cpp" />
     <ClCompile Include="Renderer\VertexBuffer.cpp" />
     <ClCompile Include="Renderer\VertexFormat.cpp" />
+    <ClCompile Include="Window\Dialog.cpp" />
     <ClCompile Include="Window\Window.cpp" />
     <ClCompile Include="Window\WindowConfig.cpp" />
   </ItemGroup>
@@ -506,6 +528,7 @@
     <ClInclude Include="Animation\Skeleton.hpp" />
     <ClInclude Include="Audio\AudioSystem.hpp" />
     <ClInclude Include="Audio\AudioSystemConfig.hpp" />
+    <ClInclude Include="Core\BufferCoder.hpp" />
     <ClInclude Include="Core\ByteBuffer.hpp" />
     <ClInclude Include="Core\Clock.hpp" />
     <ClInclude Include="Core\DevConsole.hpp" />
@@ -515,14 +538,17 @@
     <ClInclude Include="Core\FileUtils.hpp" />
     <ClInclude Include="Core\HeatMaps.hpp" />
     <ClInclude Include="Core\Image.hpp" />
+    <ClInclude Include="Core\IOBuffer.hpp" />
     <ClInclude Include="Core\JobSystem.hpp" />
     <ClInclude Include="Core\JobSystemConfig.hpp" />
+    <ClInclude Include="Core\NamedProperties.hpp" />
     <ClInclude Include="Core\NamedStrings.hpp" />
     <ClInclude Include="Core\Rgba8.hpp" />
     <ClInclude Include="Core\RgbaF.hpp" />
     <ClInclude Include="Core\Stopwatch.hpp" />
     <ClInclude Include="Core\StringUtils.hpp" />
     <ClInclude Include="Core\Time.hpp" />
+    <ClInclude Include="Core\UUID.hpp" />
     <ClInclude Include="Core\VertexUtils.hpp" />
     <ClInclude Include="Core\Vertex_PCU.hpp" />
     <ClInclude Include="Core\Vertex_PNCU.hpp" />
@@ -536,6 +562,8 @@
     <ClInclude Include="Math\AABB2.hpp" />
     <ClInclude Include="Math\AABB3.hpp" />
     <ClInclude Include="Math\Capsule2.hpp" />
+    <ClInclude Include="Math\ConvexHull2D.hpp" />
+    <ClInclude Include="Math\ConvexPoly2D.hpp" />
     <ClInclude Include="Math\Curves.hpp" />
     <ClInclude Include="Math\EulerAngles.hpp" />
     <ClInclude Include="Math\FloatRange.hpp" />
@@ -547,12 +575,18 @@
     <ClInclude Include="Math\MathUtils.hpp" />
     <ClInclude Include="Math\Matrix.hpp" />
     <ClInclude Include="Math\OBB2.hpp" />
+    <ClInclude Include="Math\Plane2D.hpp" />
     <ClInclude Include="Math\PolarPosition2D.hpp" />
     <ClInclude Include="Math\RandomNumberGenerator.hpp" />
+    <ClInclude Include="Math\RaycastResult.hpp" />
     <ClInclude Include="Math\Transformation.hpp" />
     <ClInclude Include="Math\Vec2.hpp" />
     <ClInclude Include="Math\Vec3.hpp" />
     <ClInclude Include="Math\Vec4.hpp" />
+    <ClInclude Include="Network\Message.hpp" />
+    <ClInclude Include="Network\NetworkSystem.hpp" />
+    <ClInclude Include="Network\Packet.hpp" />
+    <ClInclude Include="Network\RemoteConsole.hpp" />
     <ClInclude Include="Renderer\BitmapFont.hpp" />
     <ClInclude Include="Renderer\Camera.hpp" />
     <ClInclude Include="Renderer\ConstantBuffer.hpp" />
@@ -569,8 +603,10 @@
     <ClInclude Include="Renderer\SpriteDefinition.hpp" />
     <ClInclude Include="Renderer\SpriteSheet.hpp" />
     <ClInclude Include="Renderer\Texture.hpp" />
+    <ClInclude Include="Renderer\TextureView.hpp" />
     <ClInclude Include="Renderer\VertexBuffer.hpp" />
     <ClInclude Include="Renderer\VertexFormat.hpp" />
+    <ClInclude Include="Window\Dialog.hpp" />
     <ClInclude Include="Window\Window.hpp" />
     <ClInclude Include="Window\WindowConfig.hpp" />
   </ItemGroup>

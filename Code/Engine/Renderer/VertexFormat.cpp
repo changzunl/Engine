@@ -558,6 +558,15 @@ void VertexBufferBuilder::Reset()
 		m_offsets[i] = -1;
 }
 
+void VertexBufferBuilder::Clear()
+{
+    m_data.clear();
+    m_count = 0;
+    m_offset = 0;
+    std::vector<float> zero_vector;
+    m_data.swap(zero_vector);
+}
+
 void VertexBufferBuilder::Grow(size_t count)
 {
 	m_data.reserve(m_data.size() + m_stride * count);

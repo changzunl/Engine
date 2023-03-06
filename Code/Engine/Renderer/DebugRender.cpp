@@ -365,14 +365,15 @@ void DebugRenderEndFrame()
 		auto ite = g_debugRenderer->m_props.begin();
 		while (ite != g_debugRenderer->m_props.end())
 		{
-			auto& entity = **ite;
-			if (entity.m_persist)
+			auto* entity = *ite;
+			if (entity->m_persist)
 			{
 				ite++;
 				continue;
 			}
-			else if (entity.m_lifeTimer.IsStopped() || entity.m_lifeTimer.CheckDurationElapsedAndDecrement())
+			else if (entity->m_lifeTimer.IsStopped() || entity->m_lifeTimer.CheckDurationElapsedAndDecrement())
 			{
+				delete entity;
 				ite = g_debugRenderer->m_props.erase(ite);
 				continue;
 			}
@@ -388,14 +389,15 @@ void DebugRenderEndFrame()
 		auto ite = g_debugRenderer->m_messages.begin();
 		while (ite != g_debugRenderer->m_messages.end())
 		{
-			auto& entity = **ite;
-			if (entity.m_persist)
+			auto* entity = *ite;
+			if (entity->m_persist)
 			{
 				ite++;
 				continue;
 			}
-			else if (entity.m_lifeTimer.IsStopped() || entity.m_lifeTimer.CheckDurationElapsedAndDecrement())
+			else if (entity->m_lifeTimer.IsStopped() || entity->m_lifeTimer.CheckDurationElapsedAndDecrement())
 			{
+				delete entity;
 				ite = g_debugRenderer->m_messages.erase(ite);
 				continue;
 			}
@@ -411,14 +413,15 @@ void DebugRenderEndFrame()
 		auto ite = g_debugRenderer->m_texts.begin();
 		while (ite != g_debugRenderer->m_texts.end())
 		{
-			auto& entity = **ite;
-			if (entity.m_persist)
+			auto* entity = *ite;
+			if (entity->m_persist)
 			{
 				ite++;
 				continue;
 			}
-			else if (entity.m_lifeTimer.IsStopped() || entity.m_lifeTimer.CheckDurationElapsedAndDecrement())
+			else if (entity->m_lifeTimer.IsStopped() || entity->m_lifeTimer.CheckDurationElapsedAndDecrement())
 			{
+				delete entity;
 				ite = g_debugRenderer->m_texts.erase(ite);
 				continue;
 			}
@@ -429,6 +432,24 @@ void DebugRenderEndFrame()
 			}
 		}
 	}
+}
+
+void DebugAddUIPoint(const Vec3& pos, float radius, float duration, const Rgba8& startColor, const Rgba8& endColor, DebugRenderMode mode)
+{
+    DebugProp* prop = new DebugProp(pos, EulerAngles(), duration, startColor, endColor);
+
+    prop->m_renderMode = mode;
+	AddVertsForZCylinder(prop->m_vertices, Vec3(), radius, 1.00001f, Rgba8::WHITE);
+
+    if (std::this_thread::get_id() == g_debugRenderer->m_mainThreadId)
+    {
+        g_debugRenderer->m_props.push_back(prop);
+    }
+    else
+    {
+        std::lock_guard<std::mutex> guard(g_debugRenderer->m_asyncMutex);
+        g_debugRenderer->m_asyncProps.push_back(prop);
+    }
 }
 
 void DebugAddWorldPoint(const Vec3& pos, float radius, float duration, const Rgba8& startColor, const Rgba8& endColor, DebugRenderMode mode)

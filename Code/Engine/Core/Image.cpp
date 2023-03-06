@@ -5,7 +5,7 @@
 #define STB_IMAGE_IMPLEMENTATION // Exactly one .CPP (this Image.cpp) should #define this before #including stb_image.h
 #include "ThirdParty/stb/stb_image.h"
 
-const Image Image::WHITE_PIXEL = Image(IntVec2(1, 1), Rgba8::WHITE);
+const Image Image::WHITE_PIXEL = Image(IntVec2(2, 2), Rgba8::WHITE);
 
 Image::Image(char const* imageFilePath)
 {

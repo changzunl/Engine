@@ -14,6 +14,13 @@ struct AABB2;
 class Renderer;
 class BitmapFont;
 
+namespace tinyxml2
+{
+    class XMLElement;
+}
+
+typedef tinyxml2::XMLElement XmlElement;
+
 enum class DevConsoleMode
 {
     HIDDEN,
@@ -28,7 +35,6 @@ struct DevConsoleLine
 
 public:
     DevConsoleLine(int frameNumber, double timeSinceStart, const Rgba8& color, const std::string& text);
-    ~DevConsoleLine();
 
 private:
     int         m_frameNumber;
@@ -46,9 +52,20 @@ public:
     char              m_triggerKey     = KEYCODE_TILDE;
 };
 
+enum PermissionLevel
+{
+    PERMISSION_ROOT,
+    PERMISSION_REMOTE,
+    PERMISSION_SIZE,
+};
+
+
 class DevConsole
 {
 public:
+    using MessageSink = void(*)(const Rgba8& color, const std::string& text);
+    using CmdList = std::vector<std::string>;
+
     DevConsole(const DevConsoleConfig& theConfig);
     ~DevConsole();
 
@@ -58,7 +75,7 @@ public:
     void           EndFrame();
     void           Shutdown();
  
-    void           Execute(const std::string& consoleCommandText);
+    void           Execute(const std::string& consoleCommandText, PermissionLevel permission = PERMISSION_ROOT);
     void           AddLine(const Rgba8& color, const std::string& text); // async supported
     void           Render(const AABB2& bounds, Renderer* rendererOverride = nullptr) const;
 
@@ -73,6 +90,11 @@ public:
     bool           ClearLines();
     BitmapFont*    GetFont() const;
     const Clock*   GetClock() const;
+
+    void           SetNetMessageSink(MessageSink ptr);
+    void           SetBannedCmds(PermissionLevel level, CmdList cmds);
+    void           ExecuteXmlCommandScriptNode(const XmlElement& commandScriptXmlElement);
+    void           ExecuteXmlCommandScriptFile(const std::string& commandScriptXmlFilePathName);
 
 public:
     static const Rgba8             LOG_ERROR;
@@ -101,5 +123,7 @@ private:
     std::mutex                     m_asyncMutex;
 	std::vector<DevConsoleLine>    m_asyncLines;
 
+    MessageSink                    m_netMesssageSink                                        = nullptr; 
+    CmdList                        m_bannedCmds[PERMISSION_SIZE];
 };
 

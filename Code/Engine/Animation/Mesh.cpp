@@ -74,6 +74,62 @@ void Mesh::WriteBytes(ByteBuffer* buffer) const
 // 	ByteUtils::WriteArray_Net(buffer, m_indices, DataType::INT);
 }
 
+void Mesh::TransformBasis(const Vec3& i, const Vec3& j, const Vec3& k)
+{
+	if (i == Vec3(1, 0, 0) && j == Vec3(0, 1, 0) && k == Vec3(0, 0, 1)) // ignore identity transform
+		return;
+
+	for (Vec3& vert : m_vertices)
+	{
+		Vec3 result = {};
+		result.x = i.x * vert.x + j.x * vert.y + k.x * vert.z;
+		result.y = i.y * vert.x + j.y * vert.y + k.y * vert.z;
+		result.z = i.z * vert.x + j.z * vert.y + k.z * vert.z;
+
+		vert = result;
+	}
+
+	for (Vec3& vert : m_normals)
+	{
+		Vec3 result = {};
+		result.x = i.x * vert.x + j.x * vert.y + k.x * vert.z;
+		result.y = i.y * vert.x + j.y * vert.y + k.y * vert.z;
+		result.z = i.z * vert.x + j.z * vert.y + k.z * vert.z;
+
+		vert = result;
+	}
+}
+
+void Mesh::ScaleMesh(float scale)
+{
+	if (scale == 1.f) // ignore identity scale
+		return;
+
+	for (Vec3& vert : m_vertices)
+	{
+		vert *= scale;
+	}
+}
+
+void Mesh::FlipUV()
+{
+	for (auto& uvs : m_uvs)
+	{
+		for (Vec2& uv : uvs)
+		{
+			uv.y = 1 - uv.y;
+		}
+	}
+}
+
+void Mesh::ReverseWindingOrder()
+{
+	for (size_t i = 0; i < m_indices.size(); i += 3)
+	{
+		std::swap(m_indices[i + 1], m_indices[i + 2]);
+	}
+}
+
 void StaticMesh::ReadBytes(ByteBuffer* byteBuf)
 {
 	char IDENTIFIER[4];

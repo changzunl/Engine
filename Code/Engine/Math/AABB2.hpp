@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Vec2.hpp"
+#include "Engine/Math/Vec2.hpp"
+#include "Engine/Math/FloatRange.hpp"
 
 struct AABB2
 {
@@ -11,9 +12,10 @@ public:
 	Vec2 m_maxs;
 
 public:
-	~AABB2() {}												// destructor (do nothing)
-	AABB2() {}												// default constructor (do nothing)
-	AABB2(const AABB2& copyFrom);							// copy constructor (from another vec2)
+	~AABB2() {}                                                        // destructor (do nothing)
+	AABB2() {}                                                         // default constructor (do nothing)
+	AABB2(const AABB2& copyFrom);                                      // copy constructor (from another AABB2)
+	AABB2(AABB2&& moveFrom);                                           // move constructor (from another AABB2)
 	explicit AABB2(float minX, float minY, float maxX, float maxY);
 	explicit AABB2(const Vec2& mins, const Vec2& maxs);
 
@@ -25,6 +27,10 @@ public:
 	Vec2 GetPointAtUV(const Vec2& uv) const;
 	Vec2 GetUVForPoint(const Vec2& point) const;
 	AABB2 GetSubBox(const AABB2& uv) const;
+	FloatRange GetRangeX() const;
+	FloatRange GetRangeY() const;
+	AABB2 GetIntersection(const AABB2& other) const;
+	bool HasIntersection(const AABB2& other) const;
 
 	//
 	void Translate(const Vec2& translation);
@@ -36,10 +42,15 @@ public:
 	void AlignToBoxVertical(const AABB2& target, float alignment);
 
 	//
-	AABB2 ChopOffTop(float v);
-	AABB2 ChopOffBottom(float v);
-	AABB2 ChopOffLeft(float u);
-	AABB2 ChopOffRight(float u);
+	AABB2 ChopOffTop(float v, bool rel = true);
+	AABB2 ChopOffBottom(float v, bool rel = true);
+	AABB2 ChopOffLeft(float u, bool rel = true);
+	AABB2 ChopOffRight(float u, bool rel = true);
+
+	bool operator==(const AABB2& other);
+	bool operator!=(const AABB2& other);
+	void operator=(const AABB2& other);
+	void operator=(AABB2&& other) noexcept;
 
 };
 

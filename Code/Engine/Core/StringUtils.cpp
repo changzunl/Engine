@@ -41,8 +41,6 @@ const std::string Stringf( int maxLength, char const* format, ... )
 	return returnValue;
 }
 
-// code review
-
 StringList SplitStringOnDelimiter(const std::string& inputString, char delimiter)
 {
 	StringList list;
@@ -70,5 +68,64 @@ std::string TrimString(const std::string& inputString)
 
 	size_t lastNonSpace = inputString.find_last_not_of(' ');
 	return inputString.substr(firstNonSpace,  lastNonSpace + 1 - firstNonSpace);
+}
+
+StringList ParseStringOnSpace(const std::string& originalString)
+{
+	StringList list = SplitStringOnDelimiter(originalString, ' ');
+	if (list.empty())
+		return list;
+
+	StringList parsed;
+
+	for (auto& str : list)
+	{
+		if (str.empty())
+			continue;
+
+		if (parsed.empty())
+        {
+            parsed.push_back(str);
+		}
+		else if (str.back() == '"')
+		{
+			while (parsed.size() > 1 && std::find(parsed.back().begin(), parsed.back().end(), '"') == parsed.back().end()) // while cannot find '"' in prev line
+			{
+				*(parsed.end() - 2) += " " + parsed.back();
+				parsed.pop_back();
+			}
+			parsed.back() += " " + str;
+		}
+		else
+		{
+			parsed.push_back(str);
+		}
+	}
+
+	return parsed;
+}
+
+StringList ParseArgumentOnEquals(const std::string& originalString)
+{
+	StringList result = { "", "" };
+
+	for (size_t i = 0; i < originalString.size(); i++)
+	{
+		if (originalString[i] == '=')
+		{
+			result[0] = originalString.substr(0, i);
+			result[1] = originalString.substr(i + 1, originalString.size() - i - 1);
+
+			if (result[1].size() >= 2 && result[1].front() == '\"' && result[1].back() == '\"')
+			{
+                result[1].pop_back();
+                result[1].erase(result[1].begin());
+			}
+
+			return result;
+		}
+	}
+
+	return result;
 }
 

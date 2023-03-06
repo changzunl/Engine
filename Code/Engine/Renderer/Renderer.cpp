@@ -31,6 +31,8 @@
 #define DEFINE_D3D11_LIBS
 #include "ID3D11Internal.hpp"
 
+#include <dxgi1_2.h>
+
 #ifdef ENGINE_DEBUG_RENDER
 #include <dxgidebug.h>
 #pragma comment( lib, "dxguid.lib" )
@@ -71,7 +73,23 @@ void Renderer::CreateRenderContext()
 	HRESULT result = {};
 
 	// DX11 device initialize
-	DXGI_SWAP_CHAIN_DESC paramSwapChainDesc = {};
+
+    // result = ::D3D11CreateDeviceAndSwapChain(nullptr, paramDriverType, 0, paramFlags, 0, 0, paramSDKVersion, &paramSwapChainDesc, &swapChain, &m_device, &paramFeatureLevel, &m_deviceContext);
+	// ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ::D3D11CreateDeviceAndSwapChain");
+
+    UINT paramSDKVersion = D3D11_SDK_VERSION;
+	D3D_DRIVER_TYPE paramDriverType = D3D_DRIVER_TYPE_HARDWARE;
+	UINT paramFlags = 0;
+	D3D_FEATURE_LEVEL paramFeatureLevel = D3D_FEATURE_LEVEL_12_1;
+#ifdef ENGINE_DEBUG_RENDER
+	paramFlags |= D3D11_CREATE_DEVICE_DEBUG;
+#endif
+
+    result = ::D3D11CreateDevice(nullptr, paramDriverType, 0, paramFlags, 0, 0, paramSDKVersion, &m_device, &paramFeatureLevel, &m_deviceContext);
+	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ::D3D11CreateDevice");
+
+	// default swap chain
+    DXGI_SWAP_CHAIN_DESC paramSwapChainDesc = {};
 	paramSwapChainDesc.BufferDesc.Width = m_theConfig.m_window->GetClientDimensions().x;
 	paramSwapChainDesc.BufferDesc.Height = m_theConfig.m_window->GetClientDimensions().y;
 	paramSwapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -82,23 +100,33 @@ void Renderer::CreateRenderContext()
 	paramSwapChainDesc.Windowed = true;
 	paramSwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 
-	UINT paramSDKVersion = D3D11_SDK_VERSION;
-	D3D_DRIVER_TYPE paramDriverType = D3D_DRIVER_TYPE_HARDWARE;
-	UINT paramFlags = 0;
-	D3D_FEATURE_LEVEL paramFeatureLevel = D3D_FEATURE_LEVEL_12_1;
-#ifdef ENGINE_DEBUG_RENDER
-	paramFlags |= D3D11_CREATE_DEVICE_DEBUG;
-#endif
+	m_mainScreen.screenBuffer = new Texture();
+	m_mainScreen.screenBuffer->m_info.name = "SCREEN_BUFFER";
+	m_mainScreen.screenBuffer->m_info.dimensions = m_theConfig.m_window->GetClientDimensions();
 
-	m_renderTargetScreen = new Texture();
-	m_renderTargetScreen->m_name = "SCREEN_BUFFER";
-	m_renderTargetScreen->m_dimensions = m_theConfig.m_window->GetClientDimensions();
+	IDXGIDevice* dxgiDevice;
+	result = m_device->QueryInterface(__uuidof(IDXGIDevice), (void**)&dxgiDevice);
+	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to cast ID3D11Device -> IDXGIDevice");
 
-	result = ::D3D11CreateDeviceAndSwapChain(nullptr, paramDriverType, 0, paramFlags, 0, 0, paramSDKVersion, &paramSwapChainDesc, &m_swapChain, &m_device, &paramFeatureLevel, &m_deviceContext);
-	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ::D3D11CreateDeviceAndSwapChain");
-	m_swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&m_renderTargetScreen->m_texture);
+	IDXGIAdapter* dxgiAdapter;
+	result = dxgiDevice->GetParent(__uuidof(IDXGIAdapter), (void**)&dxgiAdapter);
+	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to cast ID3D11Device -> IDXGIAdapter");
+
+	IDXGIFactory* dxgiFactory;
+	result = dxgiAdapter->GetParent(__uuidof(IDXGIFactory), (void**)&dxgiFactory);
+	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to cast ID3D11Device -> IDXGIFactory");
+
+	m_mainScreen.window = m_theConfig.m_window;
+	result = dxgiFactory->CreateSwapChain(m_device, &paramSwapChainDesc, &m_mainScreen.swapChain);
+	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call IDXGIFactory::CreateSwapChain");
+
+	DX_SAFE_RELEASE(dxgiFactory);
+	DX_SAFE_RELEASE(dxgiAdapter);
+	DX_SAFE_RELEASE(dxgiDevice);
+
+	m_mainScreen.swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&m_mainScreen.screenBuffer->m_texture);
 	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call IDXGISwapChain::GetBuffer");
-	m_device->CreateRenderTargetView(m_renderTargetScreen->m_texture, nullptr, &m_renderTargetScreen->m_rtv);
+	m_device->CreateRenderTargetView(m_mainScreen.screenBuffer->m_texture, nullptr, &m_mainScreen.screenBuffer->m_rtv);
 	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ID3D11Device::CreateRenderTargetView");
 }
 
@@ -144,8 +172,8 @@ void Renderer::CreateDepthState()
 	HRESULT result = {};
 
 	m_depthStencilState.m_depthStencilTexture = new Texture();
-	m_depthStencilState.m_depthStencilTexture->m_dimensions = m_theConfig.m_window->GetClientDimensions();
-	m_depthStencilState.m_depthStencilTexture->m_name = "TEXTURE_DEPTH_STENCIL";
+	m_depthStencilState.m_depthStencilTexture->m_info.dimensions = m_theConfig.m_window->GetClientDimensions();
+	m_depthStencilState.m_depthStencilTexture->m_info.name = "TEXTURE_DEPTH_STENCIL";
 
 	D3D11_TEXTURE2D_DESC pTextureDesc = {};
 	pTextureDesc.Width = m_theConfig.m_window->GetClientDimensions().x;
@@ -177,7 +205,7 @@ void Renderer::CreateDepthState()
 
 	result = m_device->CreateShaderResourceView(m_depthStencilState.m_depthStencilTexture->m_texture, &pShaderResourceViewDesc, &m_depthStencilState.m_depthStencilTexture->m_srv);
 	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ID3D11Device::CreateShaderResourceView");
-	SetDebugName(m_depthStencilState.m_depthStencilTexture->m_texture, m_depthStencilState.m_depthStencilTexture->m_name.c_str());
+	SetDebugName(m_depthStencilState.m_depthStencilTexture->m_texture, m_depthStencilState.m_depthStencilTexture->m_info.name.c_str());
 
 	SetDepthTarget(nullptr);
 }
@@ -282,7 +310,10 @@ void Renderer::InitializeRenderState()
 void Renderer::BeginFrame()
 {
 	ClearScreen(Rgba8(127, 127, 127, 255));
-	m_blendState.SetBlendMode(BlendMode::ALPHA);
+	m_rasterizerState.SetRasterizerState(CullMode::BACK, FillMode::SOLID, WindingOrder::COUNTERCLOCKWISE);
+	m_depthStencilState.SetDepthStencilState(DepthTest::LESSEQUAL, true);
+    m_blendState.SetBlendMode(BlendMode::ALPHA);
+	m_samplerState.SetSamplerMode(SamplerMode::BILINEARWRAP);
 	BindShader(nullptr);
 	BindTexture(nullptr);
 	SetTintColor(Rgba8::WHITE);
@@ -295,7 +326,12 @@ void Renderer::EndFrame()
 	DebugRenderEndFrame();
 
 	// "Present" the back buffer by swapping the front (visible) and back (working) screen buffers
-	m_swapChain->Present(0, 0);
+	m_mainScreen.swapChain->Present(0, 0);
+
+	for (auto& screen : m_screens)
+	{
+		screen.swapChain->Present(0, 0);
+	}
 }
 
 void Renderer::Shutdown()
@@ -324,18 +360,23 @@ void Renderer::SetRenderTargets(int size, Texture* const* textures)
 {
 	constexpr int MAX_TARGETS = 16;
 
+    for (auto& target : m_renderTargets)
+        target = nullptr;
+
 	if (!textures)
-	{
-		m_deviceContext->OMSetRenderTargets(1, &m_renderTargetScreen->m_rtv, m_currentDepthTarget);
-		return;
+    {
+        m_renderTargetSize = 1;
+		m_renderTargets[0] = m_mainScreen.screenBuffer->m_rtv;
+	}
+    else
+    {
+        m_renderTargetSize = size;
+        for (int i = 0; i < size && i < MAX_TARGETS; i++)
+            m_renderTargets[i] = textures[i]->m_rtv;
 	}
 
-	ID3D11RenderTargetView* views[MAX_TARGETS] = {};
 
-	for (int i = 0; i < size && i < MAX_TARGETS; i++)
-		views[i] = textures[i]->m_rtv;
-
-	m_deviceContext->OMSetRenderTargets(size, views, m_currentDepthTarget);
+	m_deviceContext->OMSetRenderTargets(m_renderTargetSize, m_renderTargets, m_currentDSV);
 }
 
 const AABB2& Renderer::GetViewport()
@@ -429,9 +470,39 @@ void Renderer::SetRenderStates()
 		HRESULT result = {};
 
 		D3D11_DEPTH_STENCIL_DESC paramDepthDesc = {};
+
 		paramDepthDesc.DepthEnable = true;
 		paramDepthDesc.DepthWriteMask = m_depthStencilState.m_depthMask ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
-		paramDepthDesc.DepthFunc = (D3D11_COMPARISON_FUNC)GetD3DConstant(m_depthStencilState.m_depthTest);
+        paramDepthDesc.DepthFunc = (D3D11_COMPARISON_FUNC)GetD3DConstant(m_depthStencilState.m_depthTest);
+		paramDepthDesc.StencilEnable = FALSE;
+		paramDepthDesc.StencilReadMask = D3D11_DEFAULT_STENCIL_READ_MASK;
+		paramDepthDesc.StencilWriteMask = D3D11_DEFAULT_STENCIL_WRITE_MASK;
+        const D3D11_DEPTH_STENCILOP_DESC defaultStencilOp =
+        { D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_STENCIL_OP_KEEP, D3D11_COMPARISON_ALWAYS };
+		paramDepthDesc.FrontFace = defaultStencilOp;
+		paramDepthDesc.BackFace = defaultStencilOp;
+
+		if (m_depthStencilState.m_stencilTest && m_depthStencilState.m_stencilWrite)
+        {
+            paramDepthDesc.StencilEnable = true;
+            paramDepthDesc.FrontFace.StencilFunc = D3D11_COMPARISON_GREATER_EQUAL;
+            paramDepthDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
+            paramDepthDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_REPLACE;
+		}
+		else if (m_depthStencilState.m_stencilTest)
+        {
+            paramDepthDesc.StencilEnable = true;
+            paramDepthDesc.FrontFace.StencilFunc = D3D11_COMPARISON_GREATER_EQUAL;
+			paramDepthDesc.StencilWriteMask = 0;
+		}
+		else if (m_depthStencilState.m_stencilWrite)
+        {
+            paramDepthDesc.StencilEnable = true;
+            paramDepthDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+            paramDepthDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
+            paramDepthDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_REPLACE;
+            paramDepthDesc.StencilReadMask = 0;
+		}
 
 		result = m_device->CreateDepthStencilState(&paramDepthDesc, &m_depthStencilState.m_depthStencilState);
 		ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ID3D11Device::CreateRasterizerState");
@@ -458,10 +529,10 @@ void Renderer::SetRenderStates()
 
 void Renderer::ReleaseRenderContext()
 {
-	delete m_renderTargetScreen;
-	m_renderTargetScreen = nullptr;
-	
-	DX_SAFE_RELEASE(m_swapChain);
+	delete m_mainScreen.screenBuffer;
+	m_mainScreen.screenBuffer = nullptr;
+	DX_SAFE_RELEASE(m_mainScreen.swapChain);
+
 	DX_SAFE_RELEASE(m_deviceContext);
 	DX_SAFE_RELEASE(m_device);
 
@@ -476,7 +547,7 @@ void Renderer::ReleaseRenderContext()
 
 void Renderer::ClearScreen(const Rgba8& color)
 {
-	ClearScreen(color, m_renderTargetScreen);
+	ClearScreen(color, m_mainScreen.screenBuffer);
 	ClearDepth();
 }
 
@@ -490,8 +561,14 @@ void Renderer::ClearScreen(const Rgba8& color, Texture* renderTarget)
 
 void Renderer::ClearDepth(float value /*= 1.0f*/)
 {
-	if (m_currentDepthTarget)
-		m_deviceContext->ClearDepthStencilView(m_currentDepthTarget, D3D11_CLEAR_DEPTH, value, 0);
+	if (m_currentDSV)
+		m_deviceContext->ClearDepthStencilView(m_currentDSV, D3D11_CLEAR_DEPTH, value, 0);
+}
+
+void Renderer::ClearStencil(unsigned char value /*= 1.0f*/)
+{
+    if (m_currentDSV)
+        m_deviceContext->ClearDepthStencilView(m_currentDSV, D3D11_CLEAR_STENCIL, 1.0f, value);
 }
 
 ModelConstants& Renderer::GetModelConstants()
@@ -534,11 +611,19 @@ void Renderer::SetLightState()
 	BindConstantBuffer(LIGHT_CONSTANT_BUFFER_SLOT, m_lightCBO);
 }
 
-void Renderer::BeginCamera(const Camera& camera)
+void Renderer::BeginCamera(const Camera& camera, const Window* window)
 {
-	m_deviceContext->OMSetRenderTargets(1, &m_renderTargetScreen->m_rtv, m_currentDepthTarget);
-
-	CameraConstants constant = {};
+	if (window == nullptr)
+    {
+        m_deviceContext->OMSetRenderTargets(1, &m_mainScreen.screenBuffer->m_rtv, m_currentDSV);
+	}
+	else
+	{
+		m_deviceContext->OMSetRenderTargets(1, &GetScreenTexture(window)->m_rtv, m_currentDSV);
+	}
+	
+	CameraConstants& constant = m_cameraConstants;
+	constant = {};
 	constant.ProjectionMatrix = camera.GetProjectionMatrix();
 	constant.ProjectionMatrix.Append(camera.GetRenderMatrix().GetOrthonormalInverse());
 	constant.ViewMatrix = camera.GetViewMatrix();
@@ -560,6 +645,9 @@ void Renderer::EndCamera(const Camera& camera)
 
 void Renderer::DrawVertexArray(int numVertex, const Vertex_PCU* vertexArray)
 {
+	if (numVertex == 0)
+		return;
+
 	CopyCPUToGPU(vertexArray, m_immediateVBO->GetStride() * numVertex, m_immediateVBO);
 	DrawVertexBuffer(m_immediateVBO, numVertex);
 }
@@ -571,6 +659,9 @@ void Renderer::DrawVertexArray(VertexList vertices)
 
 void Renderer::DrawVertexBuffer(VertexBuffer* vbo, int vertexCount, int vertexOffset /*= 0*/)
 {
+    if (vertexCount == 0)
+        return;
+
 	SetRenderStates();
 	SetModelState();
 	m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -595,6 +686,9 @@ void Renderer::DrawVertexBuffer(VertexBuffer* vbo, int vertexCount, int vertexOf
 
 void Renderer::DrawVertexBuffer(int slots, VertexBuffer** vbo, int vertexCount, int vertexOffset /*= 0*/)
 {
+    if (vertexCount == 0)
+        return;
+
 	SetRenderStates();
 	SetModelState();
 	m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -619,6 +713,9 @@ void Renderer::DrawVertexBuffer(int slots, VertexBuffer** vbo, int vertexCount, 
 
 void Renderer::DrawIndexedVertexBuffer(IndexBuffer* ibo, VertexBuffer* vbo, int indexCount, int indexOffset, int vertexOffset)
 {
+	if (indexCount == 0)
+		return;
+
 	SetRenderStates();
 	SetModelState();
 	m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -629,6 +726,9 @@ void Renderer::DrawIndexedVertexBuffer(IndexBuffer* ibo, VertexBuffer* vbo, int 
 
 void Renderer::DrawIndexedVertexBuffer(IndexBuffer* ibo, int slots, VertexBuffer** vbo, int indexCount, int indexOffset /*= 0*/, int vertexOffset /*= 0*/)
 {
+    if (indexCount == 0)
+        return;
+
 	SetRenderStates();
 	SetModelState();
 	m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -639,6 +739,9 @@ void Renderer::DrawIndexedVertexBuffer(IndexBuffer* ibo, int slots, VertexBuffer
 
 void Renderer::DrawInstancedVertexBuffer(VertexBuffer** vbo, int vertexCount, int instanceCount, int vertexOffset /*= 0*/, int instanceOffset /*= 0*/)
 {
+    if (vertexCount == 0 || instanceCount == 0)
+        return;
+
 	SetRenderStates();
 	SetModelState();
 	m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -663,6 +766,9 @@ void Renderer::DrawInstancedVertexBuffer(VertexBuffer** vbo, int vertexCount, in
 
 void Renderer::DrawInstancedVertexBuffer(int slots, VertexBuffer** vbo, int vertexCount, int instanceCount, int vertexOffset /*= 0*/, int instanceOffset /*= 0*/)
 {
+    if (vertexCount == 0 || instanceCount == 0)
+        return;
+
 	SetRenderStates();
 	SetModelState();
 	m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -687,6 +793,9 @@ void Renderer::DrawInstancedVertexBuffer(int slots, VertexBuffer** vbo, int vert
 
 void Renderer::DrawIndexedInstancedVertexBuffer(IndexBuffer* ibo, VertexBuffer** vbo, int indexCount, int instanceCount, int indexOffset /*= 0*/, int vertexOffset /*= 0*/, int instanceOffset /*= 0*/)
 {
+    if (indexCount == 0 || instanceCount == 0)
+        return;
+
 	SetRenderStates();
 	SetModelState();
 	m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -697,12 +806,81 @@ void Renderer::DrawIndexedInstancedVertexBuffer(IndexBuffer* ibo, VertexBuffer**
 
 void Renderer::DrawIndexedInstancedVertexBuffer(int slots, IndexBuffer* ibo, VertexBuffer** vbo, int indexCount, int instanceCount, int indexOffset /*= 0*/, int vertexOffset /*= 0*/, int instanceOffset /*= 0*/)
 {
+    if (indexCount == 0 || instanceCount == 0)
+        return;
+
 	SetRenderStates();
 	SetModelState();
 	m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	BindVertexBuffer(slots, vbo);
 	BindIndexBuffer(ibo);
 	m_deviceContext->DrawIndexedInstanced(indexCount, instanceCount, indexOffset, vertexOffset, instanceOffset);
+}
+
+void Renderer::DrawPostprocessRect(const Window* window)
+{
+	if (window == nullptr)
+    {
+        m_deviceContext->OMSetRenderTargets(1, &m_mainScreen.screenBuffer->m_rtv, m_depthStencilState.m_depthStencilView);
+	}
+	else
+    {
+        m_deviceContext->OMSetRenderTargets(1, &GetScreenTexture(window)->m_rtv, m_depthStencilState.m_depthStencilView);
+	}
+    Camera ortho;
+    ortho.SetOrthoView(AABB2::ZERO_TO_ONE.m_mins, AABB2::ZERO_TO_ONE.m_maxs);
+    ortho.SetViewport(AABB2::ZERO_TO_ONE);
+
+    CameraConstants constant = {};
+    constant.ProjectionMatrix = ortho.GetProjectionMatrix();
+    constant.ProjectionMatrix.Append(ortho.GetRenderMatrix().GetOrthonormalInverse());
+    constant.ViewMatrix = ortho.GetViewMatrix();
+
+    CopyCPUToGPU(&constant, sizeof(CameraConstants), m_cameraCBO);
+
+    ModelConstants modelConsts = m_modelConstants;
+
+    m_modelConstants.ModelMatrix.SetIdentity();
+    m_modelConstants.TintColor = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+    Vertex_PCU verts[6] = {};
+    verts[0].m_position = Vec3(0, 1, 0);
+    verts[0].m_uvTexCoords = Vec2(0, 0);
+    verts[1].m_position = Vec3(0, 0, 0);
+    verts[1].m_uvTexCoords = Vec2(0, 1);
+    verts[2].m_position = Vec3(1, 1, 0);
+    verts[2].m_uvTexCoords = Vec2(1, 0);
+    verts[3].m_position = Vec3(1, 0, 0);
+    verts[3].m_uvTexCoords = Vec2(1, 1);
+    verts[4].m_position = Vec3(1, 1, 0);
+    verts[4].m_uvTexCoords = Vec2(1, 0);
+    verts[5].m_position = Vec3(0, 0, 0);
+    verts[5].m_uvTexCoords = Vec2(0, 1);
+
+    DrawVertexArray(6, verts);
+
+    m_modelConstants = modelConsts;
+    CopyCPUToGPU(&m_cameraConstants, sizeof(CameraConstants), m_cameraCBO);
+    m_deviceContext->OMSetRenderTargets(m_renderTargetSize, m_renderTargets, m_currentDSV);
+}
+
+void Renderer::DrawNDCFullscreenRect()
+{
+    Vertex_PCU verts[6] = {};
+    verts[0].m_position = Vec3(-1, 1, 0);
+    verts[0].m_uvTexCoords = Vec2(0, 0);
+    verts[1].m_position = Vec3(-1, -1, 0);
+    verts[1].m_uvTexCoords = Vec2(0, 1);
+    verts[2].m_position = Vec3(1, 1, 0);
+    verts[2].m_uvTexCoords = Vec2(1, 0);
+    verts[3].m_position = Vec3(1, -1, 0);
+    verts[3].m_uvTexCoords = Vec2(1, 1);
+    verts[4].m_position = Vec3(1, 1, 0);
+    verts[4].m_uvTexCoords = Vec2(1, 0);
+    verts[5].m_position = Vec3(-1, -1, 0);
+    verts[5].m_uvTexCoords = Vec2(0, 1);
+
+    DrawVertexArray(6, verts);
 }
 
 void Renderer::SetCullMode(CullMode cullMode)
@@ -748,6 +926,11 @@ void Renderer::SetBlendMode(BlendMode blendMode)
 void Renderer::SetSamplerMode(SamplerMode samplerMode)
 {
 	m_samplerState.SetSamplerMode(samplerMode);
+}
+
+DepthStencilState& Renderer::GetDepthStencilState()
+{
+	return m_depthStencilState;
 }
 
 void Renderer::InitializeCustomConstantBuffer(int slot, size_t size)
@@ -798,19 +981,93 @@ void Renderer::SetCustomConstantBuffer(int slot, const void* data)
 	BindConstantBuffer(slot, cbo);
 }
 
-Texture* Renderer::GetScreenTexture()
+int Renderer::AddScreen(Window* window)
 {
-	return m_renderTargetScreen;
+	HRESULT result;
+
+	m_screens.emplace_back();
+	ScreenTarget& screen = m_screens.back();
+	screen.window = window;
+
+    DXGI_SWAP_CHAIN_DESC paramSwapChainDesc = {};
+	paramSwapChainDesc.BufferDesc.Width = window->GetClientDimensions().x;
+	paramSwapChainDesc.BufferDesc.Height = window->GetClientDimensions().y;
+	paramSwapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	paramSwapChainDesc.SampleDesc.Count = 1;
+	paramSwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	paramSwapChainDesc.BufferCount = 2;
+	paramSwapChainDesc.OutputWindow = HWND(window->GetHwnd());
+	paramSwapChainDesc.Windowed = true;
+	paramSwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+
+	screen.screenBuffer = new Texture();
+	screen.screenBuffer->m_info.name = "SCREEN_BUFFER";
+	screen.screenBuffer->m_info.dimensions = window->GetClientDimensions();
+
+	IDXGIDevice* dxgiDevice;
+	result = m_device->QueryInterface(__uuidof(IDXGIDevice), (void**)&dxgiDevice);
+	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to cast ID3D11Device -> IDXGIDevice");
+
+	IDXGIAdapter* dxgiAdapter;
+	result = dxgiDevice->GetParent(__uuidof(IDXGIAdapter), (void**)&dxgiAdapter);
+	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to cast ID3D11Device -> IDXGIAdapter");
+
+	IDXGIFactory* dxgiFactory;
+	result = dxgiAdapter->GetParent(__uuidof(IDXGIFactory), (void**)&dxgiFactory);
+	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to cast ID3D11Device -> IDXGIFactory");
+
+	result = dxgiFactory->CreateSwapChain(m_device, &paramSwapChainDesc, &screen.swapChain);
+	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call IDXGIFactory::CreateSwapChain");
+
+	DX_SAFE_RELEASE(dxgiFactory);
+	DX_SAFE_RELEASE(dxgiAdapter);
+	DX_SAFE_RELEASE(dxgiDevice);
+
+	screen.swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&screen.screenBuffer->m_texture);
+	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call IDXGISwapChain::GetBuffer");
+	m_device->CreateRenderTargetView(screen.screenBuffer->m_texture, nullptr, &screen.screenBuffer->m_rtv);
+	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ID3D11Device::CreateRenderTargetView");
+
+	return int(m_screens.size()) - 1;
+}
+
+void Renderer::RemoveScreen(Window* window)
+{
+	for (auto ite = m_screens.begin(); ite != m_screens.end(); ++ite)
+	{
+	    if (ite->window == window)
+	    {
+			ScreenTarget screen = *ite;
+			m_screens.erase(ite);
+
+			delete screen.screenBuffer;
+			DX_SAFE_RELEASE(screen.swapChain);
+
+			return;
+	    }
+	}
+}
+
+Texture* Renderer::GetScreenTexture(const Window* window) const
+{
+	if (window == nullptr || window == m_mainScreen.window)
+		return m_mainScreen.screenBuffer;
+
+	for (auto& screen : m_screens)
+		if (window == screen.window)
+			return screen.screenBuffer;
+
+	return nullptr;
 }
 
 void Renderer::SetDepthTarget(Texture* texture)
 {
-	if (m_currentDepthTarget == m_depthStencilState.m_depthStencilView)
+	if (m_currentDSV == m_depthStencilState.m_depthStencilView)
 	{
 		if (texture)
 		{
 			// default -> custom
-			m_depthTargetTexture = texture;
+			m_depthBuffer = texture;
 
 			D3D11_DEPTH_STENCIL_VIEW_DESC pDepthStencilDesc = {};
 			pDepthStencilDesc.Flags = 0;
@@ -818,7 +1075,7 @@ void Renderer::SetDepthTarget(Texture* texture)
 			pDepthStencilDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 			pDepthStencilDesc.Texture2D.MipSlice = 0;
 
-			HRESULT result = m_device->CreateDepthStencilView(m_depthTargetTexture->m_texture, &pDepthStencilDesc, &m_currentDepthTarget);
+			HRESULT result = m_device->CreateDepthStencilView(m_depthBuffer->m_texture, &pDepthStencilDesc, &m_currentDSV);
 			ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ID3D11Device::CreateDepthStencilView");
 		}
 	}
@@ -827,17 +1084,17 @@ void Renderer::SetDepthTarget(Texture* texture)
 		if (!texture)
 		{
 			// custom -> default
-			DX_SAFE_RELEASE(m_currentDepthTarget);
+			DX_SAFE_RELEASE(m_currentDSV);
 
-			m_depthTargetTexture = nullptr;
-			m_currentDepthTarget = m_depthStencilState.m_depthStencilView;
+			m_depthBuffer = nullptr;
+			m_currentDSV = m_depthStencilState.m_depthStencilView;
 		}
-		else if (texture != m_depthTargetTexture)
+		else if (texture != m_depthBuffer)
 		{
 			// custom -> custom
-			DX_SAFE_RELEASE(m_currentDepthTarget);
+			DX_SAFE_RELEASE(m_currentDSV);
 
-			m_depthTargetTexture = texture;
+			m_depthBuffer = texture;
 
 			D3D11_DEPTH_STENCIL_VIEW_DESC pDepthStencilDesc = {};
 			pDepthStencilDesc.Flags = 0;
@@ -845,7 +1102,7 @@ void Renderer::SetDepthTarget(Texture* texture)
 			pDepthStencilDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 			pDepthStencilDesc.Texture2D.MipSlice = 0;
 
-			HRESULT result = m_device->CreateDepthStencilView(m_depthTargetTexture->m_texture, &pDepthStencilDesc, &m_currentDepthTarget);
+			HRESULT result = m_device->CreateDepthStencilView(m_depthBuffer->m_texture, &pDepthStencilDesc, &m_currentDSV);
 			ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ID3D11Device::CreateDepthStencilView");
 		}
 	}
@@ -884,8 +1141,8 @@ Texture* Renderer::CreateTexture(IntVec2 dimensions, bool isR32, bool isDepth, b
 	pSubResData.SysMemPitch = sizeof(Rgba8) * dimensions.x;
 
 	Texture* texture = new Texture();
-	texture->m_name = (isDepth ? "DEPTH_" : "TEXTURE_") + std::to_string(textuteCounter++);
-	texture->m_dimensions = dimensions;
+	texture->m_info.name = (isDepth ? "DEPTH_" : "TEXTURE_") + std::to_string(textuteCounter++);
+	texture->m_info.dimensions = dimensions;
 
 	result = m_device->CreateTexture2D(&pTextureDesc, &pSubResData, &texture->m_texture);
 	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ID3D11Device::CreateTexture2D");
@@ -898,7 +1155,7 @@ Texture* Renderer::CreateTexture(IntVec2 dimensions, bool isR32, bool isDepth, b
 
 	result = m_device->CreateShaderResourceView(texture->m_texture, isDepth ? &pShaderResourceViewDesc : nullptr, &texture->m_srv);
 	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ID3D11Device::CreateShaderResourceView");
-	SetDebugName(texture->m_texture, texture->m_name.c_str());
+	SetDebugName(texture->m_texture, texture->m_info.name.c_str());
 
 	if (isTarget)
 	{
@@ -908,6 +1165,38 @@ Texture* Renderer::CreateTexture(IntVec2 dimensions, bool isR32, bool isDepth, b
 
 	m_loadedTextures.push_back(texture);
 	return texture;
+}
+
+Texture* Renderer::CreateTexture(const TextureCreateInfo& info)
+{
+    HRESULT result = {};
+
+    D3D11_TEXTURE2D_DESC pTextureDesc = {};
+    pTextureDesc.Width = info.dimensions.x;
+    pTextureDesc.Height = info.dimensions.y;
+    pTextureDesc.MipLevels = 1;
+    pTextureDesc.ArraySize = 1;
+    pTextureDesc.Format = (DXGI_FORMAT) GetD3DConstant(info.format);
+    pTextureDesc.SampleDesc.Count = 1;
+    pTextureDesc.Usage = (D3D11_USAGE) GetD3DConstant(info.memoryHint);
+    pTextureDesc.BindFlags = GetD3DFlags(info.bindFlags);
+	pTextureDesc.CPUAccessFlags = info.memoryHint == EMemoryHint::DYNAMIC ? D3D11_CPU_ACCESS_WRITE : 0;
+
+    D3D11_SUBRESOURCE_DATA pSubResData = {};
+    pSubResData.pSysMem = info.initData;
+    pSubResData.SysMemPitch = static_cast<UINT>(info.initDataLength / info.dimensions.y);
+
+    Texture* texture = new Texture();
+    texture->m_info.name = info.name;
+    texture->m_info.dimensions = info.dimensions;
+
+    result = m_device->CreateTexture2D(&pTextureDesc, info.memoryHint == EMemoryHint::DYNAMIC ? nullptr : &pSubResData, &texture->m_texture);
+    ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ID3D11Device::CreateTexture2D");
+    result = m_device->CreateShaderResourceView(texture->m_texture, nullptr, &texture->m_srv);
+    ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ID3D11Device::CreateShaderResourceView");
+    SetDebugName(texture->m_texture, info.name.c_str());
+
+    return texture;
 }
 
 void Renderer::DeleteTexture(Texture*& texture)
@@ -963,33 +1252,13 @@ Texture* Renderer::CreateTextureFromFile(const char* imageFilePath)
 
 Texture* Renderer::CreateTextureFromImage(const Image& image)
 {
-	HRESULT result = {};
+	TextureCreateInfo info;
+	info.name = image.GetImageFilePath();
+	info.dimensions = image.GetDimensions();
+	info.initData = image.GetRawData();
+	info.initDataLength = image.GetRawDataSize();
 
-	D3D11_TEXTURE2D_DESC pTextureDesc = {};
-	pTextureDesc.Width = image.GetDimensions().x;
-	pTextureDesc.Height = image.GetDimensions().y;
-	pTextureDesc.MipLevels = 1;
-	pTextureDesc.ArraySize = 1;
-	pTextureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	pTextureDesc.SampleDesc.Count = 1;
-	pTextureDesc.Usage = D3D11_USAGE_IMMUTABLE;
-	pTextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
-	D3D11_SUBRESOURCE_DATA pSubResData = {};
-	pSubResData.pSysMem = image.GetRawData();
-	pSubResData.SysMemPitch = sizeof(Rgba8) * image.GetDimensions().x;
-
-	Texture* texture = new Texture();
-	texture->m_name = image.GetImageFilePath();
-	texture->m_dimensions = image.GetDimensions();
-	
-	result = m_device->CreateTexture2D(&pTextureDesc, &pSubResData, &texture->m_texture);
-	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ID3D11Device::CreateTexture2D");
-	result = m_device->CreateShaderResourceView(texture->m_texture, nullptr, &texture->m_srv);
-	ASSERT_OR_DIE(SUCCEEDED(result), "Failed to call ID3D11Device::CreateShaderResourceView");
-	SetDebugName(texture->m_texture, image.GetImageFilePath().c_str());
-
-	return texture;
+	return CreateTexture(info);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -1515,15 +1784,68 @@ int GetD3DConstant(DepthTest depthTest)
 	switch (depthTest)
 	{
 	case DepthTest::ALWAYS      : return D3D11_COMPARISON_ALWAYS;
-	case DepthTest::NEVER 		: return D3D11_COMPARISON_NEVER;
-	case DepthTest::EQUAL 		: return D3D11_COMPARISON_EQUAL;
-	case DepthTest::NOTEQUAL 	: return D3D11_COMPARISON_NOT_EQUAL; 
-	case DepthTest::LESS 		: return D3D11_COMPARISON_LESS;
-	case DepthTest::LESSEQUAL 	: return D3D11_COMPARISON_LESS_EQUAL; 
+	case DepthTest::NEVER       : return D3D11_COMPARISON_NEVER;
+	case DepthTest::EQUAL       : return D3D11_COMPARISON_EQUAL;
+	case DepthTest::NOTEQUAL    : return D3D11_COMPARISON_NOT_EQUAL; 
+	case DepthTest::LESS        : return D3D11_COMPARISON_LESS;
+	case DepthTest::LESSEQUAL   : return D3D11_COMPARISON_LESS_EQUAL; 
 	case DepthTest::GREATER     : return D3D11_COMPARISON_GREATER;
 	case DepthTest::GREATEREQUAL: return D3D11_COMPARISON_GREATER_EQUAL;
 	}
 	ERROR_AND_DIE("No coresponding enum value for DepthTest!");
+}
+
+int GetD3DConstant(ETextureFormat format)
+{
+    switch (format)
+    {
+    case ETextureFormat::R8G8B8A8_UNORM:           return DXGI_FORMAT_R8G8B8A8_UNORM;
+    case ETextureFormat::D24_UNORM_S8_UINT:        return DXGI_FORMAT_D24_UNORM_S8_UINT;
+    case ETextureFormat::R24G8_TYPELESS:           return DXGI_FORMAT_R24G8_TYPELESS;
+    case ETextureFormat::R24_UNORM_X8_TYPELESS:    return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+    case ETextureFormat::R32_FLOAT:                return DXGI_FORMAT_R32_FLOAT;
+    }
+    ERROR_AND_DIE("No coresponding enum value for ETextureFormat!");
+}
+
+int GetD3DConstant(EMemoryHint hint)
+{
+    switch (hint)
+    {
+    case EMemoryHint::STATIC:     return D3D11_USAGE_DEFAULT;
+    case EMemoryHint::GPU:        return D3D11_USAGE_IMMUTABLE;
+    case EMemoryHint::DYNAMIC:    return D3D11_USAGE_DYNAMIC;
+    // case EMemoryHint::STAGING:    return D3D11_USAGE_STAGING;
+    }
+    ERROR_AND_DIE("No coresponding enum value for EMemoryHint!");
+}
+
+int GetD3DConstant(ETextureBindFlagBit bit)
+{
+    switch (bit)
+    {
+    case TEXTURE_BIND_SHADER_RESOURCE_BIT:     return D3D11_BIND_SHADER_RESOURCE;
+    case TEXTURE_BIND_RENDER_TARGET_BIT:       return D3D11_BIND_RENDER_TARGET;
+    case TEXTURE_BIND_DEPTH_STENCIL_BIT:       return D3D11_BIND_DEPTH_STENCIL;
+    }
+    ERROR_AND_DIE("No coresponding enum value for ETextureBindFlagBit!");
+}
+
+int GetD3DFlags(ETextureBindFlags flags)
+{
+	int flagsResult = 0;
+	
+    static constexpr ETextureBindFlagBit values[3]
+	{
+	    TEXTURE_BIND_SHADER_RESOURCE_BIT,
+        TEXTURE_BIND_RENDER_TARGET_BIT,
+        TEXTURE_BIND_DEPTH_STENCIL_BIT,
+	};
+
+	for (auto& bit : values)
+		flagsResult |= ((flags & bit) == bit) ? GetD3DConstant(bit) : 0;
+
+	return flagsResult;
 }
 
 void RasterizerState::Release()

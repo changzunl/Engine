@@ -68,7 +68,7 @@ void AssetImporter::AssimpSetSpaceConventions(const Mat4x4& mat)
 
 const aiScene* AssetImporter::ImportFile(size_t length, const char* data, const char* type)
 {
-	return aiImportFileFromMemory(data, (uint32_t)length, aiProcess_Triangulate | aiProcess_LimitBoneWeights | aiProcess_PopulateArmatureData, type);
+	return aiImportFileFromMemory(data, (uint32_t)length, aiProcess_Triangulate | aiProcess_LimitBoneWeights | aiProcess_PopulateArmatureData | aiProcess_GenNormals, type);
 }
 
 void AssetImporter::ReleaseFileFBX(const aiScene* pAIScene)
@@ -84,8 +84,8 @@ const aiScene* AssetImporter::ImportFileFBX(size_t length, const char* data)
 const aiScene* AssetImporter::ImportFile(const char* path, const char* type)
 {
 	std::vector<uint8_t> buffer;
-	FileReadToBuffer(buffer, path);
-	return ImportFile(buffer.size(), (char*)buffer.data(), type);
+	int size = FileReadToBuffer(buffer, path);
+	return size < 0 ? nullptr : ImportFile(buffer.size(), (char*)buffer.data(), type);
 }
 
 int AssetImporter::ParseMesh(const aiScene* pAIScene, std::vector<SkeletalMesh*>& meshes)
@@ -125,7 +125,10 @@ int AssetImporter::ParseMesh(const aiScene* pAIScene, const aiNode* pAINode, std
 
 void AssetImporter::ParseMesh(const aiNode* pAINode, const aiMesh* pAIMesh, SkeletalMesh& mesh)
 {
-	if (pAIMesh->mPrimitiveTypes != aiPrimitiveType_TRIANGLE)
+	if (((pAIMesh->mPrimitiveTypes & aiPrimitiveType_POINT) == aiPrimitiveType_POINT) ||
+		((pAIMesh->mPrimitiveTypes & aiPrimitiveType_LINE) == aiPrimitiveType_LINE) ||
+		((pAIMesh->mPrimitiveTypes & aiPrimitiveType_POLYGON) == aiPrimitiveType_POLYGON)
+		)
 		ERROR_AND_DIE("Not triangulated");
 
 	// 0. metadata
@@ -397,6 +400,11 @@ AssimpRes::~AssimpRes()
 {
 	if (m_pAIScene)
 		AssetImporter::ReleaseFileFBX(m_pAIScene);
+}
+
+bool AssimpRes::IsAvaliable() const
+{
+	return m_pAIScene != nullptr;
 }
 
 void AssimpRes::SetSpaceConventions(const Mat4x4& mat)

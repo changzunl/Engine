@@ -19,6 +19,7 @@ public:
 	bool    IsOnRange(float value) const;
 	bool    IsOverlappingWith(const FloatRange& anotherRange) const;
 	void    SetFromText(const char* text);
+	FloatRange GetOverlapped(const FloatRange& other) const;
 
 	// Operators
 	bool    operator==(const FloatRange& compare) const;

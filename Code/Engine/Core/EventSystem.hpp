@@ -4,23 +4,59 @@
 #include <map>
 #include <mutex>
 
-// code review
+#include <functional>
 
-typedef NamedStrings EventArgs;
+#include "NamedProperties.hpp"
 
-typedef bool (*EventCallbackFunction)(EventArgs& args);
+using EventArgs = NamedProperties;
 
-struct EventSubscription
+using EventCallbackFP = bool (*)(EventArgs& args);
+
+using EventCallbackFunction = EventCallbackFP; // for compatibility
+
+using EventCallback = std::function<bool(EventArgs&)>;
+
+using EventHandler = uint32_t;
+
+using Subscriber = const void*;
+
+constexpr EventHandler INVALID_HANDLER = 0;
+
+class EventSystem;
+class SubscriptionList;
+
+class EventSubscription
 {
-public:
-    EventSubscription(const EventCallbackFunction& functionPtr);
-    ~EventSubscription();
+    friend class EventSystem;
+    friend class SubscriptionList;
 
 public:
-    EventCallbackFunction m_functionPtr;
+    EventSubscription(EventHandler handler, Subscriber subscriber, EventCallbackFP functionPtr);
+    EventSubscription(EventHandler handler, Subscriber subscriber, const EventCallback& callback);
+
+private:
+    EventHandler    m_handler;
+    Subscriber      m_subscriber;
+    EventCallbackFP m_functionPtr;
+    EventCallback   m_callback;
 };
 
-typedef std::vector<EventSubscription> SubscriptionList;
+class SubscriptionList
+{
+	friend class EventSystem;
+
+public:
+    EventHandler Subscribe(EventCallbackFP callback, Subscriber subscriber = nullptr);
+    EventHandler Subscribe(const EventCallback& callback, Subscriber subscriber = nullptr);
+    void Unsubscribe(EventCallbackFP fp);
+    void Unsubscribe(EventHandler handle);
+    void Unsubscribe(Subscriber subscriber);
+    bool Dispatch(EventArgs& args) const;
+
+private:
+    std::vector<EventSubscription> m_list;
+    EventHandler m_nextHandler = 1;
+};
 
 typedef std::map<std::string, SubscriptionList> EventSubscriptionMap;
 
@@ -32,7 +68,6 @@ class EventSystem
 {
 public:
     EventSystem(const EventSystemConfig& theConfig);
-    ~EventSystem();
 
     // lifecycle
     void Startup();
@@ -41,8 +76,12 @@ public:
     void Shutdown();
 
     // functions
-    void SubscribeEventCallbackFunction(const std::string& eventName, EventCallbackFunction functionPtr);
-    void UnsubscribeEventCallbackFunction(const std::string& eventName, EventCallbackFunction functionPtr);
+    EventHandler SubscribeEventCallbackFunction(const std::string& eventName, EventCallbackFP functionPtr, Subscriber subscriber = nullptr);
+    void UnsubscribeEventCallbackFunction(const std::string& eventName, EventCallbackFP functionPtr);
+	EventHandler Subscribe(const std::string& eventName, const EventCallback& callback, Subscriber subscriber = nullptr);
+	void Unsubscribe(const std::string& eventName, EventHandler handle);
+	void Unsubscribe(const std::string& eventName, Subscriber subscriber);
+	void Unsubscribe(Subscriber subscriber);
     bool FireEvent(const std::string& eventName, EventArgs& args) const;
     bool FireEvent(const std::string& eventName) const;
     void GetRegisteredEventNames(std::vector<std::string>& outNames) const;
@@ -53,3 +92,20 @@ private:
     mutable std::mutex         m_subscriptionMutex;
 };
 
+class EventRecipient
+{
+protected:
+    EventRecipient(EventSystem& eventSystem);
+
+public:
+    virtual ~EventRecipient();
+
+    EventRecipient(const EventRecipient&) = delete;
+    EventRecipient(EventRecipient&&) = delete;
+
+    void operator=(const EventRecipient&) = delete;
+    void operator=(EventRecipient&&) = delete;
+
+private:
+    EventSystem& m_eventSystem;
+};

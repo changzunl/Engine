@@ -138,6 +138,7 @@ public:
     void Build(Renderer* renderer, VertexBuffer* buffer);
     void Upload(Renderer* renderer, VertexBuffer* buffer);
     void Reset();
+    void Clear();
 	void Grow(size_t count);
 	void CalcFaceNormal();
 

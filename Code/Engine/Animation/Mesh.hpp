@@ -18,9 +18,15 @@ protected:
 	Mesh(const char* name) : m_name(name) {};
 	virtual ~Mesh() {};
 
+public:
 	// Serialization
 	virtual void ReadBytes(ByteBuffer* byteBuf);
 	virtual void WriteBytes(ByteBuffer* byteBuf) const;
+
+	virtual void TransformBasis(const Vec3& i, const Vec3& j, const Vec3& k);
+	virtual void ScaleMesh(float scale);
+	virtual void FlipUV();
+	virtual void ReverseWindingOrder();
 
 public:
 	std::string         m_name;

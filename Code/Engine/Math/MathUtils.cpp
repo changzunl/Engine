@@ -9,6 +9,7 @@
 #include "AABB3.hpp"
 #include "OBB2.hpp"
 #include "LineSegment2.hpp"
+#include "Plane2D.hpp"
 #include "Capsule2.hpp"
 #include "EulerAngles.hpp"
 #include "FloatRange.hpp"
@@ -830,6 +831,11 @@ RaycastResult2D RaycastVsLineSegment2D(const Vec2& startPos, const Vec2& fwdNorm
         impNormal *= -1.0f;
 
     return RaycastResult2D(impDist, startPos + impDist * fwdNormal, impNormal);
+}
+
+RaycastResult2D RaycastVsPlane2D(const Vec2& startPos, const Vec2& fwdNormal, float maxDist, const Vec2& planeDir, float planeDist)
+{
+	return Plane2D(planeDir, planeDist).Raycast(startPos, fwdNormal, maxDist);
 }
 
 RaycastResult3D RaycastVsAABB3D(const Vec3& startPos, const Vec3& fwdNormal, float maxDist, const AABB3& box)

@@ -100,6 +100,48 @@ void DevConsole::Startup()
 	g_theEventSystem->SubscribeEventCallbackFunction("Input:KeyPressed", Event_KeyPressed);
 	g_theEventSystem->SubscribeEventCallbackFunction("DebugRendererClear", Command_DebugRendererClear);
 	g_theEventSystem->SubscribeEventCallbackFunction("DebugRendererToggle", Command_DebugRendererToggle);
+
+    g_theEventSystem->Subscribe("ExecuteCommand", [this](auto args)
+        {
+            auto command = args.GetValue("cmd", "");
+            if (command.empty())
+            {
+                AddLine(LOG_WARN, Stringf("Command not provided."));
+                return false;
+            }
+
+            Execute(command);
+
+            return true;
+        }, this);
+
+	g_theEventSystem->Subscribe("RunScriptFile", [this](auto args)
+		{
+			auto path = args.GetValue("path", "");
+			if (path.empty())
+			{
+				AddLine(LOG_WARN, Stringf("File path not provided."));
+				return false;
+			}
+
+			ExecuteXmlCommandScriptFile(path);
+
+			return true;
+		}, this);
+
+    g_theEventSystem->Subscribe("RunScriptNode", [this](auto args)
+        {
+            auto node = args.GetValue<const XmlElement*>("node", nullptr);
+            if (!node)
+            {
+                AddLine(LOG_WARN, Stringf("Node not provided."));
+                return false;
+            }
+
+            ExecuteXmlCommandScriptNode(*node);
+
+            return true;
+        }, this);
 }
 
 void DevConsole::BeginFrame()
@@ -122,38 +164,207 @@ void DevConsole::EndFrame()
 	m_frameNumber++;
 }
 
-void DevConsole::Shutdown()
+// bug: using xml parser requires all arguments to have consist quotes around value string
+void ParseCommand(const std::string& line, std::string& cmd, EventArgs& args)
 {
+	if (line.find('"') == std::string::npos)
+	{
+		auto cmds = ParseStringOnSpace(line);
+		auto ite = cmds.begin();
+		cmd = *(ite++);
+
+		while (ite != cmds.end())
+		{
+			auto arg = ParseArgumentOnEquals(*(ite++));
+			args.SetValue(arg[0], arg[1]);
+		}
+
+		return;
+	}
+
+    XmlDocument xml;
+    auto error = xml.Parse(Stringf("<%s />", line.c_str()).c_str());
+
+    if (error)
+    {
+        return;
+    }
+
+	cmd = xml.RootElement()->Name();
+
+    for (auto attr = xml.RootElement()->FirstAttribute(); attr; attr = attr->Next())
+    {
+        args.SetValue(attr->Name(), attr->Value());
+    }
 }
 
-void DevConsole::Execute(const std::string& consoleCommandText)
+bool ParseCommandPairs(const std::string& line, EventArgs& args);
+
+bool ParseCommand2(const std::string& line, std::string& cmd, EventArgs& args)
+{
+	auto pos = line.find(' ');
+
+	if (pos != std::string::npos)
+	{
+		cmd = line.substr(0, pos);
+
+		auto arg = line.substr(pos + 1);
+
+		return ParseCommandPairs(arg, args);
+	}
+	else
+	{
+		if (line.find('=') != std::string::npos || line.find('"') != std::string::npos)
+			return false;
+
+		cmd = line;
+		return true;
+	}
+}
+
+bool ParseCommandPairs(const std::string& line, EventArgs& args)
+{
+    std::vector<std::string> list;
+    std::vector<char> buffer;
+    buffer.reserve(line.size());
+
+    bool inValue = false;
+    bool inQoute = false;
+    bool inSpace = false;
+
+    for (auto c : line)
+    {
+		if (inSpace)
+		{
+			if (c != ' ')
+				return false;
+
+			inSpace = false;
+		}
+
+		if (inValue)
+		{
+            if (inQoute)
+            {
+                if (c == '"')
+                {
+                    inQoute = false;
+                    inValue = false;
+                    list.emplace_back(buffer.begin(), buffer.end());
+                    buffer.clear();
+					inSpace = true;
+                }
+                else
+                {
+                    buffer.push_back(c);
+                }
+            }
+            else if (c == '"')
+            {
+                if (buffer.size())
+                    return false; // space should only be in front of a key
+
+				inQoute = true;
+            }
+            else if (c == ' ')
+            {
+                inValue = false;
+                list.emplace_back(buffer.begin(), buffer.end());
+                buffer.clear();
+            }
+			else
+            {
+                buffer.push_back(c);
+			}
+		}
+		else
+		{
+			if (c == '=')
+			{
+				inValue = true;
+				list.emplace_back(buffer.begin(), buffer.end());
+				buffer.clear();
+			}
+			else if (c == '"')
+			{
+				return false; // qoute should not be in key
+            }
+            else if (c == ' ')
+            {
+				if (buffer.size())
+					return false; // space should only be in front of a key
+            }
+			else
+			{
+				buffer.push_back(c);
+			}
+		}
+    }
+
+	if (inValue)
+	{
+		if (inQoute)
+			return false;
+
+        list.emplace_back(buffer.begin(), buffer.end());
+	}
+
+	if ((list.size() & 1) != 0)
+		return false;
+
+	for (size_t i = 0; i < list.size(); i += 2)
+	{
+		args.SetValue(list[i], list[i + 1]);
+	}
+
+	return true;
+}
+
+void DevConsole::Shutdown()
+{
+	g_theEventSystem->Unsubscribe(this);
+}
+
+void DevConsole::Execute(const std::string& consoleCommandText, PermissionLevel permission /*= PERMISSION_ROOT*/)
 {
 	StringList cmds = SplitStringOnDelimiter(consoleCommandText, '\n');
 	for (const std::string& cmd : cmds)
-	{
-		StringList cmdArgs = SplitStringOnDelimiter(cmd, ' ');
-		EventArgs eventArgs = EventArgs();
-		const std::string& cmdName = cmdArgs[0];
-		for (int idx = 1; idx < cmdArgs.size(); idx++)
-		{
-			const std::string& argument = cmdArgs[idx];
-			StringList keyValues = SplitStringOnDelimiter(argument, '=');
-			if (keyValues.size() != 2)
-			{
-				g_theConsole->AddLine(DevConsole::LOG_WARN, Stringf("Invalid command argument : %s", cmd.c_str()));
-				return;
-			}
-			else
-			{
-				eventArgs.SetValue(keyValues[0], keyValues[1]);
-			}
+    {
+		std::string cmdName;
+        EventArgs eventArgs;
+
+		bool result = ParseCommand2(cmd, cmdName, eventArgs);
+
+		if (!result)
+        {
+            AddLine(DevConsole::LOG_WARN, Stringf("Malformed command line: %s", cmd.c_str()));
+			continue;
 		}
-		g_theEventSystem->FireEvent(cmdName, eventArgs);
+
+		if (permission != PERMISSION_ROOT)
+        {
+            auto& banList = m_bannedCmds[permission];
+            auto ite = std::find(banList.begin(), banList.end(), cmdName);
+            if (ite != banList.end())
+            {
+                AddLine(DevConsole::LOG_WARN, Stringf("Banned command: %s", cmdName.c_str()));
+                continue;
+            }
+		}
+		
+		result = g_theEventSystem->FireEvent(cmdName, eventArgs);
+		if (!result)
+        {
+            AddLine(DevConsole::LOG_WARN, Stringf("Unknown command: %s", cmdName.c_str()));
+		}
 	}
 }
 
 void DevConsole::AddLine(const Rgba8& color, const std::string& text)
 {
+	if (m_netMesssageSink)
+		m_netMesssageSink(color, text);
+
 	if (std::this_thread::get_id() == m_mainThreadId)
 	{
 		// synchronized
@@ -453,6 +664,57 @@ const Clock* DevConsole::GetClock() const
 	return &m_clock;
 }
 
+void DevConsole::SetNetMessageSink(MessageSink ptr)
+{
+	m_netMesssageSink = ptr;
+}
+
+void DevConsole::SetBannedCmds(PermissionLevel level, CmdList cmds)
+{
+    m_bannedCmds[level] = cmds;
+}
+
+void DevConsole::ExecuteXmlCommandScriptNode(const XmlElement& commandScriptXmlElement)
+{
+	for (auto child = commandScriptXmlElement.FirstChildElement(); child != nullptr; child = child->NextSiblingElement())
+	{
+		auto cmd = child->Name();
+		EventArgs args;
+		for (auto attr = child->FirstAttribute(); attr != nullptr; attr = attr->Next())
+		{
+			args.SetValue(attr->Name(), attr->Value());
+		}
+
+        bool result = g_theEventSystem->FireEvent(cmd, args);
+        if (!result)
+        {
+            AddLine(DevConsole::LOG_WARN, Stringf("Unknown command: %s", cmd));
+        }
+	}
+}
+
+void DevConsole::ExecuteXmlCommandScriptFile(const std::string& commandScriptXmlFilePathName)
+{
+	XmlDocument doc;
+    auto error = doc.LoadFile(commandScriptXmlFilePathName.c_str());
+
+	if (error)
+	{
+		AddLine(DevConsole::LOG_WARN, Stringf("Error running script file: %s", commandScriptXmlFilePathName.c_str()));
+		return;
+	}
+
+	XmlElement* root = doc.RootElement();
+
+	if (!root)
+    {
+        AddLine(DevConsole::LOG_WARN, Stringf("No root element found in script file: %s", commandScriptXmlFilePathName.c_str()));
+        return;
+	}
+
+	ExecuteXmlCommandScriptNode(*root);
+}
+
 const Rgba8 DevConsole::LOG_ERROR = Rgba8(255, 0, 0);
 const Rgba8 DevConsole::LOG_WARN  = Rgba8(255, 255, 0);
 const Rgba8 DevConsole::LOG_INFO  = Rgba8(255, 255, 255);
@@ -463,11 +725,6 @@ DevConsoleLine::DevConsoleLine(int frameNumber, double timeSinceStart, const Rgb
 	, m_timeSinceStart(timeSinceStart)
 	, m_color(color)
 	, m_text(text)
-{
-
-}
-
-DevConsoleLine::~DevConsoleLine()
 {
 
 }

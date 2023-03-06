@@ -91,6 +91,8 @@ public:
 	void SetDepthTest(DepthTest depthTest);
 	void SetDepthMask(bool writeDepth);
 	void SetDepthStencilState(DepthTest depthTest, bool writeDepth);
+	void SetStencilTest(bool enabled);
+	void SetStencilWrite(bool enabled);
 
 private:
 	void Release();
@@ -98,6 +100,8 @@ private:
 private:
 	DepthTest                m_depthTest = DepthTest::ALWAYS;
 	bool                     m_depthMask = false;
+	bool                     m_stencilTest = false;
+	bool                     m_stencilWrite = false;
 
 	bool                     m_stateChanged = true;
 	ID3D11DepthStencilState* m_depthStencilState = nullptr;

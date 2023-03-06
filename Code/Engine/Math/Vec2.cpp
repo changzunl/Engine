@@ -337,6 +337,13 @@ const Vec2 Vec2::operator/( float inverseScale ) const
 
 
 //-----------------------------------------------------------------------------------------------
+const Vec2 Vec2::operator/(const Vec2& inverseScale) const
+{
+	return Vec2(x / inverseScale.x, y / inverseScale.y);
+}
+
+
+//-----------------------------------------------------------------------------------------------
 void Vec2::operator+=( const Vec2& vecToAdd )
 {
 	x += vecToAdd.x;
@@ -345,10 +352,40 @@ void Vec2::operator+=( const Vec2& vecToAdd )
 
 
 //-----------------------------------------------------------------------------------------------
+const Vec2 Vec2::operator+(float other) const
+{
+	return Vec2(x + other, y + other);
+}
+
+
+//-----------------------------------------------------------------------------------------------
 void Vec2::operator-=( const Vec2& vecToSubtract )
 {
 	x -= vecToSubtract.x;
 	y -= vecToSubtract.y;
+}
+
+
+//-----------------------------------------------------------------------------------------------
+const Vec2 Vec2::operator-(float other) const
+{
+    return Vec2(x - other, y - other);
+}
+
+
+//-----------------------------------------------------------------------------------------------
+void Vec2::operator+=(float other)
+{
+	x += other;
+	y += other;
+}
+
+
+//-----------------------------------------------------------------------------------------------
+void Vec2::operator-=(float other)
+{
+    x -= other;
+    y -= other;
 }
 
 
@@ -369,6 +406,14 @@ void Vec2::operator/=( const float uniformDivisor )
 
 
 //-----------------------------------------------------------------------------------------------
+void Vec2::operator/=(const Vec2& vecDivisor)
+{
+	x /= vecDivisor.x;
+	y /= vecDivisor.y;
+}
+
+
+//-----------------------------------------------------------------------------------------------
 void Vec2::operator=( const Vec2& copyFrom )
 {
 	x = copyFrom.x;
@@ -376,11 +421,28 @@ void Vec2::operator=( const Vec2& copyFrom )
 }
 
 //-----------------------------------------------------------------------------------------------
-const Vec2 operator*( float uniformScale, const Vec2& vecToScale )
+const Vec2 operator+(float uniformScale, const Vec2& vecToScale)
 {
-	return Vec2(uniformScale * vecToScale.x, uniformScale * vecToScale.y);
+    return Vec2(uniformScale + vecToScale.x, uniformScale + vecToScale.y);
 }
 
+//-----------------------------------------------------------------------------------------------
+const Vec2 operator-(float uniformScale, const Vec2& vecToScale)
+{
+    return Vec2(uniformScale - vecToScale.x, uniformScale - vecToScale.y);
+}
+
+//-----------------------------------------------------------------------------------------------
+const Vec2 operator*(float uniformScale, const Vec2& vecToScale)
+{
+    return Vec2(uniformScale * vecToScale.x, uniformScale * vecToScale.y);
+}
+
+//-----------------------------------------------------------------------------------------------
+const Vec2 operator/( float uniformScale, const Vec2& vecToScale )
+{
+	return Vec2(uniformScale / vecToScale.x, uniformScale / vecToScale.y);
+}
 
 //-----------------------------------------------------------------------------------------------
 bool Vec2::operator==( const Vec2& compare ) const

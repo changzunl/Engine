@@ -102,7 +102,7 @@ CubicBezierCurve2D::CubicBezierCurve2D(const CubicHermiteCurve2D& fromHermite)
 Vec2 CubicBezierCurve2D::EvalAtParametric(float fraction) const
 {
 	Vec2 tempData[4] = { m_pos0, m_pos1, m_pos2, m_pos3 };
-	return BezierCurveRecursive(4, &tempData[0], fraction);
+	return BezierCurveT<4, Vec2>(&tempData[0], fraction);
 }
 
 float CubicBezierCurve2D::GetApproximateLength(int numSubdivisions /*= 64*/) const

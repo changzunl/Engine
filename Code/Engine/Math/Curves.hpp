@@ -102,9 +102,19 @@ T BezierCurve(int step, const T* points, float fraction)
 	return result;
 }
 
+template<uint32_t STEP, typename T>
+T BezierCurveT(const T* points, float fraction)
+{
+    T pointsTempData[STEP];
+    memcpy(pointsTempData, points, STEP * sizeof(T));
+
+    T result = BezierCurveRecursive(STEP, pointsTempData, fraction);
+    return result;
+}
+
 template<typename T>
 T BezierCurve(const T& point1, const T& point2, const T& point3, float fraction)
 {
 	T points[3] = { point1, point2, point3 };
-	return BezierCurve(3, &points[0], fraction);
+	return BezierCurveRecursive(3, &points[0], fraction);
 }

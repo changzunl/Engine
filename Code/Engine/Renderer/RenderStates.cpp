@@ -67,6 +67,24 @@ void DepthStencilState::SetDepthStencilState(DepthTest depthTest, bool writeDept
 	}
 }
 
+void DepthStencilState::SetStencilTest(bool enabled)
+{
+    if (m_stencilTest != enabled)
+    {
+		m_stencilTest = enabled;
+        m_stateChanged = true;
+    }
+}
+
+void DepthStencilState::SetStencilWrite(bool enabled)
+{
+    if (m_stencilWrite != enabled)
+    {
+        m_stencilWrite = enabled;
+        m_stateChanged = true;
+    }
+}
+
 void BlendState::SetBlendMode(BlendMode mode)
 {
 	if (m_blendMode != mode)

@@ -16,14 +16,28 @@
 //
 LRESULT CALLBACK WindowsMessageHandlingProcedure(HWND windowHandle, UINT wmMessageCode, WPARAM wParam, LPARAM lParam)
 {
-    Window* window = Window::s_mainWindow;
-    InputSystem* input = Window::s_mainWindow->m_theConfig.m_inputSystem;
+    Window* window = nullptr;
+    for (auto& info : Window::s_windows)
+    {
+        if (info.hWnd == windowHandle)
+        {
+            window = info.window;
+            break;
+        }
+    }
+    if (!window)
+        return DefWindowProc(windowHandle, wmMessageCode, wParam, lParam);
+
+    auto input = window->m_theConfig.m_inputSystem;
+
     switch (wmMessageCode)
     {
         // App close requested via "X" button, or right-click "Close Window" on task bar, or "Close" from system menu, or Alt-F4
     case WM_CLOSE:
     {
-        if (input->HandleQuitRequested()) return 0; // "Consumes" this message (tells Windows "okay, we handled it")
+        window->HandleQuit();
+            
+        return 0; // "Consumes" this message (tells Windows "okay, we handled it")
 
         break;
     }
@@ -143,11 +157,17 @@ LRESULT CALLBACK WindowsMessageHandlingProcedure(HWND windowHandle, UINT wmMessa
 
 Window* Window::s_mainWindow = nullptr;
 
+Window* Window::s_activeWindow = nullptr;
+
+std::vector<WindowInfo> Window::s_windows;
+
+bool Window::s_frameBegun = false;
+
 Window::Window(const WindowConfig& theConfig)
     : m_theConfig(theConfig)
 {
-    ASSERT_RECOVERABLE(s_mainWindow == nullptr, "Setting current window without clearing previous one!");
-    s_mainWindow = this;
+    if (s_mainWindow == nullptr)
+        s_mainWindow = this;
 }
 
 Window::~Window()
@@ -161,24 +181,74 @@ Window::~Window()
 void Window::Startup()
 {
     CreateOSWindow();
+
+    s_windows.push_back({m_osWindowHandle, this});
 }
 
 void Window::BeginFrame()
 {
-    // Process OS messages (keyboard/mouse button clicked, application lost/gained focus, etc.)
-    RunMessagePump(); // calls our own WindowsMessageHandlingProcedure() function for us!
-
-    UpdateCursor();
+    FrameBegin();
 }
 
 void Window::EndFrame()
 {
+    m_isQuitting = false;
 
+    FrameEnd();
+}
+
+void Window::FrameBegin()
+{
+    if (!s_frameBegun)
+    {
+        s_frameBegun = true;
+
+        for (auto& info : s_windows)
+        {
+            if (info.window != s_activeWindow)
+            {
+                RunMessagePump(info.hWnd); // calls our own WindowsMessageHandlingProcedure() function for us!
+                info.window->UpdateCursor();
+            }
+        }
+
+        if (s_activeWindow)
+        {
+            RunMessagePump(s_activeWindow->GetHwnd()); // calls our own WindowsMessageHandlingProcedure() function for us!
+        }
+
+        if (s_activeWindow)
+        {
+            s_activeWindow->UpdateCursor();
+        }
+
+        RunMessagePump(NULL); // calls our own WindowsMessageHandlingProcedure() function for us!
+    }
+}
+
+void Window::FrameEnd()
+{
+    if (s_frameBegun)
+    {
+        s_frameBegun = false;
+    }
 }
 
 void Window::Shutdown()
 {
+    SetWindowActive(false);
 
+    for (auto ite = s_windows.begin(); ite != s_windows.end(); ite++)
+    {
+        if (ite->window == this)
+        {
+            s_windows.erase(ite);
+            break;
+        }
+    }
+
+    ::DestroyWindow(HWND(m_osWindowHandle));
+    m_osWindowHandle = nullptr;
 }
 
 void Window::UpdateCursor()
@@ -187,6 +257,7 @@ void Window::UpdateCursor()
         return;
 
 	InputSystem* input = m_theConfig.m_inputSystem;
+    input->ReportMouseMode(m_isMouseHidden, m_isMouseClipped, m_isMouseRelative);
 
     CURSORINFO ci = { sizeof(CURSORINFO) };
     ::GetCursorInfo(&ci);
@@ -289,6 +360,35 @@ bool Window::IsWindowActive() const
     return m_isActive;
 }
 
+bool Window::PullQuitRequested()
+{
+    if (IsQuitRequested())
+    {
+        m_isQuitting = false;
+        return true;
+    }
+    return false;
+}
+
+bool Window::IsQuitRequested() const
+{
+    return m_isQuitting;
+}
+
+void Window::SetFocus() const
+{
+    ::SetActiveWindow(HWND(GetHwnd()));
+}
+
+void Window::SetMouseMode(bool hidden, bool clipped, bool relative)
+{
+    m_isMouseHidden = hidden;
+    m_isMouseClipped = clipped;
+    m_isMouseRelative = relative;
+
+    m_theConfig.m_inputSystem->ReportMouseMode(hidden, clipped, relative);
+}
+
 void Window::SetNormalizedCursorPos(const Vec2& position) const
 {
 	HWND windowHandle = HWND(GetHwnd());
@@ -301,8 +401,21 @@ void Window::SetNormalizedCursorPos(const Vec2& position) const
 	::SetCursorPos(cursorCoords.x, cursorCoords.y);
 }
 
+void Window::HandleQuit()
+{
+    m_isQuitting = true;
+
+    if (this == s_mainWindow)
+        m_theConfig.m_inputSystem->HandleQuitRequested();
+}
+
 void Window::SetWindowActive(bool active)
 {
+    if (!active && s_activeWindow == this)
+        s_activeWindow = nullptr;
+    if (active)
+        s_activeWindow = this;
+
     m_isActive = active;
 
     if (!active)
@@ -318,6 +431,7 @@ void Window::SetWindowActive(bool active)
     else
     {
 		InputSystem* input = m_theConfig.m_inputSystem;
+        input->ReportMouseMode(m_isMouseHidden, m_isMouseClipped, m_isMouseRelative);
 
 		CURSORINFO ci = { sizeof(CURSORINFO) };
 		::GetCursorInfo(&ci);
@@ -435,6 +549,14 @@ void Window::CreateOSWindow()
     clientRect.top = (int)clientMarginY;
     clientRect.bottom = clientRect.top + (int)clientHeight;
 
+    if (s_mainWindow && this != s_mainWindow)
+    {
+        clientRect.left += 50;
+        clientRect.right += 50;
+        clientRect.top += 50;
+        clientRect.bottom += 50;
+    }
+
     m_clientDimension.x = (int)clientWidth;
     m_clientDimension.y = (int)clientHeight;
 
@@ -474,12 +596,12 @@ void Window::CreateOSWindow()
 // For each message in the queue, our WindowsMessageHandlingProcedure (or "WinProc") function
 //    is called, telling us what happened (key up/down, minimized/restored, gained/lost focus, etc.)
 //
-void Window::RunMessagePump()
+void Window::RunMessagePump(void* hWnd)
 {
     MSG queuedMessage;
     for (;; )
     {
-        const BOOL wasMessagePresent = ::PeekMessage(&queuedMessage, NULL, 0, 0, PM_REMOVE);
+        const BOOL wasMessagePresent = ::PeekMessage(&queuedMessage, HWND(hWnd), 0, 0, PM_REMOVE);
         if (!wasMessagePresent)
         {
             break;

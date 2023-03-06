@@ -13,6 +13,7 @@
 #include "Engine/Math/Capsule2.hpp"
 #include "Engine/Math/MathUtils.hpp"
 #include "Engine/Core/ErrorWarningAssert.hpp"
+#include "Engine/Math/Curves.hpp"
 #include "Engine/Renderer/VertexFormat.hpp"
 
 const int VERTNUM_TRIANGLE     = 3;
@@ -108,6 +109,120 @@ void AddVertsForDisc2D(VertexList& vertsList, const Vec2& center, float radius, 
 	}
 }
 
+void AddVertsForUIBox(VertexList& vertsList, const AABB2& aabb, const Rgba8& color, float corner, AABB2 uvsAtMinMaxs, float uvCorner)
+{
+	corner = Clamp(corner, 0.f, aabb.GetDimensions().x * 0.5f);
+	corner = Clamp(corner, 0.f, aabb.GetDimensions().y * 0.5f);
+
+	float x1 = aabb.m_mins.x;
+	float x2 = aabb.m_mins.x + corner;
+	float x3 = aabb.m_maxs.x - corner;
+	float x4 = aabb.m_maxs.x;
+
+    float y1 = aabb.m_mins.y;
+    float y2 = aabb.m_mins.y + corner;
+    float y3 = aabb.m_maxs.y - corner;
+    float y4 = aabb.m_maxs.y;
+
+    AABB2 aabbLT(x1, y1, x2, y2);
+    AABB2 aabbMT(x2, y1, x3, y2);
+    AABB2 aabbRT(x3, y1, x4, y2);
+    AABB2 aabbLM(x1, y2, x2, y3);
+    AABB2 aabbMM(x2, y2, x3, y3);
+    AABB2 aabbRM(x3, y2, x4, y3);
+    AABB2 aabbLB(x1, y3, x2, y4);
+    AABB2 aabbMB(x2, y3, x3, y4);
+    AABB2 aabbRB(x3, y3, x4, y4);
+
+    x1 = uvsAtMinMaxs.m_mins.x;
+    x2 = uvsAtMinMaxs.m_mins.x + uvCorner;
+    x3 = uvsAtMinMaxs.m_maxs.x - uvCorner;
+    x4 = uvsAtMinMaxs.m_maxs.x;
+
+    y1 = uvsAtMinMaxs.m_mins.y;
+    y2 = uvsAtMinMaxs.m_mins.y + uvCorner;
+    y3 = uvsAtMinMaxs.m_maxs.y - uvCorner;
+    y4 = uvsAtMinMaxs.m_maxs.y;
+
+    AABB2 uvsLT(x1, y1, x2, y2);
+    AABB2 uvsMT(x2, y1, x3, y2);
+    AABB2 uvsRT(x3, y1, x4, y2);
+    AABB2 uvsLM(x1, y2, x2, y3);
+    AABB2 uvsMM(x2, y2, x3, y3);
+    AABB2 uvsRM(x3, y2, x4, y3);
+    AABB2 uvsLB(x1, y3, x2, y4);
+    AABB2 uvsMB(x2, y3, x3, y4);
+    AABB2 uvsRB(x3, y3, x4, y4);
+
+    vertsList.reserve(vertsList.size() + VERTNUM_RECTANGLE * 9);
+    AddVertsForAABB2D(vertsList, aabbLT, color, uvsLT);
+    AddVertsForAABB2D(vertsList, aabbMT, color, uvsMT);
+    AddVertsForAABB2D(vertsList, aabbRT, color, uvsRT);
+    AddVertsForAABB2D(vertsList, aabbLM, color, uvsLM);
+    AddVertsForAABB2D(vertsList, aabbMM, color, uvsMM);
+    AddVertsForAABB2D(vertsList, aabbRM, color, uvsRM);
+    AddVertsForAABB2D(vertsList, aabbLB, color, uvsLB);
+    AddVertsForAABB2D(vertsList, aabbMB, color, uvsMB);
+    AddVertsForAABB2D(vertsList, aabbRB, color, uvsRB);
+}
+
+void AddVertsForUIFrame(VertexList& vertsList, const AABB2& aabb, const Rgba8& color, float corner, AABB2 uvsAtMinMaxs, float uvCorner)
+{
+    corner = Clamp(corner, 0.f, aabb.GetDimensions().x * 0.5f);
+    corner = Clamp(corner, 0.f, aabb.GetDimensions().y * 0.5f);
+
+    float x1 = aabb.m_mins.x;
+    float x2 = aabb.m_mins.x + corner;
+    float x3 = aabb.m_maxs.x - corner;
+    float x4 = aabb.m_maxs.x;
+
+    float y1 = aabb.m_mins.y;
+    float y2 = aabb.m_mins.y + corner;
+    float y3 = aabb.m_maxs.y - corner;
+    float y4 = aabb.m_maxs.y;
+
+    AABB2 aabbLT(x1, y1, x2, y2);
+    AABB2 aabbMT(x2, y1, x3, y2);
+    AABB2 aabbRT(x3, y1, x4, y2);
+    AABB2 aabbLM(x1, y2, x2, y3);
+    // AABB2 aabbMM(x2, y2, x3, y3);
+    AABB2 aabbRM(x3, y2, x4, y3);
+    AABB2 aabbLB(x1, y3, x2, y4);
+    AABB2 aabbMB(x2, y3, x3, y4);
+    AABB2 aabbRB(x3, y3, x4, y4);
+
+    x1 = uvsAtMinMaxs.m_mins.x;
+    x2 = uvsAtMinMaxs.m_mins.x + uvCorner;
+    x3 = uvsAtMinMaxs.m_maxs.x - uvCorner;
+    x4 = uvsAtMinMaxs.m_maxs.x;
+
+    y1 = uvsAtMinMaxs.m_mins.y;
+    y2 = uvsAtMinMaxs.m_mins.y + uvCorner;
+    y3 = uvsAtMinMaxs.m_maxs.y - uvCorner;
+    y4 = uvsAtMinMaxs.m_maxs.y;
+
+    AABB2 uvsLT(x1, y1, x2, y2);
+    AABB2 uvsMT(x2, y1, x3, y2);
+    AABB2 uvsRT(x3, y1, x4, y2);
+    AABB2 uvsLM(x1, y2, x2, y3);
+    // AABB2 uvsMM(x2, y2, x3, y3);
+    AABB2 uvsRM(x3, y2, x4, y3);
+    AABB2 uvsLB(x1, y3, x2, y4);
+    AABB2 uvsMB(x2, y3, x3, y4);
+    AABB2 uvsRB(x3, y3, x4, y4);
+
+    vertsList.reserve(vertsList.size() + VERTNUM_RECTANGLE * 8/*9*/);
+    AddVertsForAABB2D(vertsList, aabbLT, color, uvsLT);
+    AddVertsForAABB2D(vertsList, aabbMT, color, uvsMT);
+    AddVertsForAABB2D(vertsList, aabbRT, color, uvsRT);
+    AddVertsForAABB2D(vertsList, aabbLM, color, uvsLM);
+    // AddVertsForAABB2D(vertsList, aabbMM, color, uvsMM);
+    AddVertsForAABB2D(vertsList, aabbRM, color, uvsRM);
+    AddVertsForAABB2D(vertsList, aabbLB, color, uvsLB);
+    AddVertsForAABB2D(vertsList, aabbMB, color, uvsMB);
+    AddVertsForAABB2D(vertsList, aabbRB, color, uvsRB);
+}
+
 void AddVertsForAABB2D(VertexList& vertsList, const AABB2& aabb, const Rgba8& color, AABB2 uvsAtMinMaxs)
 {
 	Vec2 boxPoints[4] = {};
@@ -146,6 +261,16 @@ void AddVertsForArrow2D(VertexList& verts, const Vec2& tailPos, const Vec2& tipP
 	AddVertsForLineSegment2D(verts, tipPos + arrowVec, tipPos, width, color);
 	arrowVec.Rotate90Degrees();
 	AddVertsForLineSegment2D(verts, tipPos + arrowVec, tipPos, width, color);
+}
+
+void AddVertsForHermite2D(VertexList& verts, const CubicHermiteCurve2D& curve, float width, const Rgba8& color)
+{
+	for (int i = 0; i < 20; i++)
+	{
+		float f1 = i * 0.05f;
+		float f2 = (i + 1) * 0.05f;
+		AddVertsForLineSegment2D(verts, curve.EvalAtParametric(f1), curve.EvalAtParametric(f2), width, color);
+	}
 }
 
 void AddVertsForAABB3D(VertexList& vertsList, const AABB3& aabb, const Rgba8& color, AABB2 uvsAtMinMaxs /*= AABB2(0.0f, 0.0f, 1.0f, 1.0f)*/)

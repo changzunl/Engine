@@ -68,7 +68,10 @@ void RgbaF::GetAsFloats(float* colorAsFloats) const
 
 Rgba8 RgbaF::GetAsRgba8() const
 {
-	return Rgba8(DenormalizeByte(r), DenormalizeByte(g), DenormalizeByte(b), DenormalizeByte(a));
+	RgbaF f = *this;
+	f.Normalize();
+
+	return Rgba8(DenormalizeByte(f.r), DenormalizeByte(f.g), DenormalizeByte(f.b), DenormalizeByte(f.a));
 }
 
 void RgbaF::Normalize()
